@@ -8,6 +8,7 @@
     :create-fn="createBonusOption"
     :update-fn="updateBonusOption"
     :delete-fn="deleteBonusOption"
+    perm-group="bonus_options"
   >
     <template #form="{ form }">
       <div>

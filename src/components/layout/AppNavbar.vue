@@ -25,7 +25,9 @@
           <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold" style="background:#938af4">
             {{ userInitial }}
           </div>
-          <span class="hidden sm:block text-sm font-medium text-gray-700">{{ auth.user?.name || 'User' }}</span>
+          <span class="hidden sm:block text-sm font-medium text-gray-700">
+            <span v-if="branchName">{{ branchName }}@</span>{{ auth.user?.name || 'User' }}
+          </span>
           <ChevronDownIcon class="w-4 h-4 text-gray-400" />
         </button>
 
@@ -34,6 +36,7 @@
             <div class="px-4 py-2 border-b border-gray-100">
               <p class="text-xs font-medium text-gray-800">{{ auth.user?.name }}</p>
               <p class="text-xs text-gray-500 truncate">{{ auth.user?.email }}</p>
+              <p v-if="branchName" class="text-xs text-gray-400 truncate mt-0.5">{{ branchName }}</p>
             </div>
             <button class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
               <UserIcon class="w-4 h-4" /> Profile
@@ -70,6 +73,16 @@ const currentPage = computed(() => route.name?.replace(/([A-Z])/g, ' $1').trim()
 const currentSection = computed(() => {
   const path = route.path.split('/')[1]
   return path ? path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ') : 'Dashboard'
+})
+
+// Only shows the "BranchName@" prefix when the user has exactly one
+// branch assigned. Hidden entirely (empty string) for a Super Admin / no
+// branch assigned, and also hidden for a user with 2+ branches — showing
+// a partial/truncated multi-branch list next to the name was more
+// confusing than just omitting it.
+const branchName = computed(() => {
+  const branches = (auth.user?.branches || []).filter(b => b?.name)
+  return branches.length === 1 ? branches[0].name : ''
 })
 
 function doLogout() {

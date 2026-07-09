@@ -8,6 +8,7 @@
     :create-fn="createContactSource"
     :update-fn="updateContactSource"
     :delete-fn="deleteContactSource"
+    perm-group="contact_sources"
   >
     <template #form="{ form }">
       <div>

@@ -8,6 +8,13 @@
     :create-fn="createProductType"
     :update-fn="updateProductType"
     :delete-fn="deleteProductType"
+    topup-field="credit"
+    topup-label="Credit"
+    entity-type="product_type"
+    balance-perm="product_types.topup"
+    perm-group="product_types"
+    :topup-fn="(id, amount, remark) => topupProductTypeCredit(id, amount, remark)"
+    :withdraw-fn="(id, amount, remark) => withdrawProductTypeCredit(id, amount, remark)"
   >
     <template #form="{ form }">
       <div>
@@ -17,6 +24,10 @@
       <div>
         <label class="label">Code <span class="text-red-500">*</span></label>
         <input v-model="form.code" class="input font-mono" required placeholder="e.g. PERSONAL_LOAN" />
+      </div>
+      <div>
+        <label class="label">Currency</label>
+        <SearchableSelect v-model="form.currency_type_id" :options="currencyTypes" placeholder="Select currency" />
       </div>
       <div>
         <label class="label">Description</label>
@@ -39,17 +50,30 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import LookupCrudView from './LookupCrudView.vue'
-import { getProductTypes, createProductType, updateProductType, deleteProductType } from '@/api/lookup'
+import SearchableSelect from '@/components/ui/SearchableSelect.vue'
+import { getProductTypes, createProductType, updateProductType, deleteProductType, getCurrencies, topupProductTypeCredit, withdrawProductTypeCredit } from '@/api/lookup'
 
 const columns = [
   { key: 'name', label: 'Name' },
   { key: 'code', label: 'Code' },
+  { key: 'currency_type', label: 'Currency' },
+  { key: 'credit', label: 'Credit' },
   { key: 'icon', label: 'Icon' },
   { key: 'sort_order', label: 'Order' },
   { key: 'branch',     label: 'Branch'     },
   { key: 'created_by', label: 'Created By' },
   { key: 'is_active', label: 'Status' },
 ]
-const defaultForm = { name: '', code: '', description: '', icon: '', sort_order: 0, is_active: true }
+const defaultForm = {
+  name: '', code: '', description: '', icon: '', currency_type_id: null,
+  sort_order: 0, is_active: true
+}
+
+const currencyTypes = ref([])
+
+onMounted(async () => {
+  try { const r = await getCurrencies({ show_all: false }); currencyTypes.value = (r.data || []).map(c => ({ id: c.id, name: c.name })) } catch {}
+})
 </script>

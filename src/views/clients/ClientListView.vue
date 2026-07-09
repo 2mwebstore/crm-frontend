@@ -85,7 +85,6 @@
               <td class="table-cell">
                 <div v-if="row.branch" class="text-sm text-gray-700">
                   {{ row.branch.name }}
-                  <span class="font-mono text-xs text-gray-400 ml-1">({{ row.branch.code }})</span>
                 </div>
                 <span v-else class="text-gray-400 text-xs">—</span>
               </td>

@@ -61,15 +61,13 @@ defineEmits(['toggle'])
 
 const auth = useAuthStore()
 const isSA = computed(() => auth.isSuperAdmin)
-const canConf = computed(() =>
-  isSA.value || auth.can('configuration.manage') || auth.can('configuration.view')
-)
 
 const groups = computed(() => [
   {
     label: '',
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: HomeIcon, show: true },
+      { to: '/daily-balance', label: 'Daily Balance', icon: BanknotesIcon, show: true },
     ]
   },
   {
@@ -100,12 +98,13 @@ const groups = computed(() => [
   {
     label: 'Configuration',
     items: [
-      { to: '/lookup/levels',          label: 'Levels',          icon: TagIcon,             show: canConf.value },
-      { to: '/lookup/contact-sources', label: 'Contact Sources', icon: Squares2X2Icon,      show: canConf.value },
-      { to: '/lookup/bank-types',      label: 'Bank Types',      icon: BuildingLibraryIcon, show: canConf.value },
-      { to: '/lookup/product-types',   label: 'Product Types',   icon: Squares2X2Icon,      show: canConf.value },
-      { to: '/lookup/bonus-options',   label: 'Bonus Options',   icon: BanknotesIcon,       show: canConf.value },
-      { to: '/lookup/currencies',      label: 'Currencies',      icon: CurrencyDollarIcon,  show: isSA.value },
+      { to: '/lookup/levels',          label: 'Levels',          icon: TagIcon,             show: isSA.value || auth.can('levels.view') },
+      { to: '/lookup/contact-sources', label: 'Contact Sources', icon: Squares2X2Icon,      show: isSA.value || auth.can('contact_sources.view') },
+      { to: '/lookup/bank-types',      label: 'Bank Types',      icon: BuildingLibraryIcon, show: isSA.value || auth.can('bank_types.view') },
+      { to: '/lookup/company-banks',   label: 'Company Banks',   icon: BanknotesIcon,       show: isSA.value || auth.can('company_banks.view') },
+      { to: '/lookup/product-types',   label: 'Product Types',   icon: Squares2X2Icon,      show: isSA.value || auth.can('product_types.view') },
+      { to: '/lookup/bonus-options',   label: 'Bonus Options',   icon: BanknotesIcon,       show: isSA.value || auth.can('bonus_options.view') },
+      { to: '/lookup/currencies',      label: 'Currencies',      icon: CurrencyDollarIcon,  show: isSA.value || auth.can('currencies.view') },
     ]
   }
 ])

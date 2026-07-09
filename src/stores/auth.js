@@ -32,13 +32,6 @@ export const useAuthStore = defineStore('auth', () => {
     return perms.every(p => userPermissions.value.includes(p))
   }
 
-  // Shorthand for configuration access
-  const canConfig = computed(() =>
-    isSuperAdmin.value ||
-    can('configuration.manage') ||
-    can('configuration.view')
-  )
-
   async function login(credentials) {
     const res = await apiLogin(credentials)
     token.value = res.data.token
@@ -65,7 +58,7 @@ export const useAuthStore = defineStore('auth', () => {
     user, token,
     isLoggedIn, isSuperAdmin,
     userPermissions,
-    can, canAny, canAll, canConfig,
+    can, canAny, canAll,
     login, fetchMe, logout
   }
 })

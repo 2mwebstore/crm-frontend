@@ -5,7 +5,7 @@
       <div>
         <h1 class="text-xl font-semibold text-gray-800">{{ isEdit ? 'Edit Client' : 'New Client' }}</h1>
         <p class="text-sm text-gray-500 mt-0.5">
-          {{ isEdit ? `Full Code: ${form.code}` : 'Select branch first, then enter the code suffix' }}
+          {{ isEdit ? `Code: ${form.code}` : 'Select branch to auto-generate code' }}
         </p>
       </div>
     </div>
@@ -21,36 +21,19 @@
             <SearchableSelect v-model="selectedBranchId" :options="branches" placeholder="Select branch" @update:modelValue="onBranchChange" />
           </div>
 
-          <!-- 2. Code = prefix + suffix input -->
+          <!-- 2. Auto code preview -->
           <div>
-            <label class="label">Code <span class="text-red-500">*</span></label>
-            <div class="flex items-center gap-0">
-              <!-- Prefix from branch -->
-              <span class="inline-flex items-center px-3 h-10 rounded-l-lg border border-r-0 border-gray-200 bg-gray-50 text-sm font-mono font-bold text-primary whitespace-nowrap" style="color:#938af4">
-                {{ selectedBranchCode || '—' }}
+            <label class="label">Code (auto-generated)</label>
+            <div class="input bg-gray-50 flex items-center gap-2 cursor-default select-none">
+              <span v-if="codePreview" class="font-mono font-bold text-sm" style="color:#938af4">{{ codePreview }}</span>
+              <span v-else class="text-gray-400 text-sm">Select branch to preview</span>
+              <span v-if="loadingCode" class="ml-auto">
+                <svg class="animate-spin w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
               </span>
-              <!-- Suffix input (max 3 chars) -->
-              <div class="relative flex-1">
-                <input
-                  v-model="codeSuffix"
-                  class="input rounded-l-none font-mono uppercase"
-                  :placeholder="selectedBranchCode ? '001' : 'Select branch first'"
-                  :disabled="!selectedBranchCode"
-                  maxlength="3"
-                  @input="codeSuffix = codeSuffix.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,3); onCodeInput()"
-                />
-                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-gray-300">{{ codeSuffix.length }}/3</span>
-              </div>
             </div>
-            <!-- Preview -->
-            <p class="text-xs mt-1" :class="codeStatus === 'ok' ? 'text-green-500' : codeStatus === 'taken' ? 'text-red-500' : 'text-gray-400'">
-              <template v-if="selectedBranchCode && codeSuffix">
-                Full code: <span class="font-mono font-bold">{{ fullCode }}</span>
-                <span v-if="codeStatus === 'ok'"> ✓ available</span>
-                <span v-else-if="codeStatus === 'taken'"> ✗ already taken</span>
-              </template>
-              <template v-else>Enter branch + suffix (e.g. CRNS + 001 → CRNS001)</template>
-            </p>
           </div>
 
           <div class="col-span-2">
@@ -149,20 +132,20 @@
           At least one product is required.
         </div>
         <div v-for="(pr, i) in form.products" :key="i" class="grid grid-cols-12 gap-2 items-center bg-gray-50 rounded-lg px-3 py-2">
-          <div class="col-span-4"><SearchableSelect v-model="pr.product_type_id" :options="lookup.productTypes" placeholder="Product type*" /></div>
+          <div class="col-span-4"><SearchableSelect v-model="pr.product_type_id" :options="productTypeOptions" placeholder="Product type*" @update:modelValue="onProductTypeChange(pr)" /></div>
           <div class="col-span-5">
             <div class="flex items-center gap-0">
               <span class="inline-flex items-center px-2 h-9 rounded-l-lg border border-r-0 border-gray-200 bg-white text-xs font-mono font-bold whitespace-nowrap" style="color:#938af4">
-                {{ selectedBranchCode || '—' }}
+                {{ productPrefix(pr) || '—' }}
               </span>
               <input
                 v-model="pr.account_suffix"
                 class="input rounded-l-none font-mono text-sm flex-1"
-                :placeholder="selectedBranchCode ? '001' : 'Select branch first'"
-                :disabled="!selectedBranchCode"
+                :placeholder="productPrefix(pr) ? '001' : 'Select product first'"
+                :disabled="!productPrefix(pr)"
                 maxlength="3"
                 required
-                @input="pr.account_suffix = pr.account_suffix.replace(/[^0-9]/g,'').slice(0,3); pr.account_id = selectedBranchCode + pr.account_suffix"
+                @input="pr.account_suffix = pr.account_suffix.replace(/[^0-9]/g,'').slice(0,3); pr.account_id = productPrefix(pr) + pr.account_suffix"
               />
             </div>
           </div>
@@ -180,7 +163,7 @@
         <button
           type="submit"
           class="btn-primary"
-          :disabled="saving || codeStatus === 'taken' || (!isEdit && !fullCode) || !form.phones.length || !form.products.length"
+          :disabled="saving || (!isEdit && !selectedBranchId) || !form.phones.length || !form.products.length"
         >
           {{ saving ? 'Saving...' : (isEdit ? 'Update Client' : 'Create Client') }}
         </button>
@@ -194,7 +177,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { useLookupStore } from '@/stores/lookup'
-import { getClient, createClient, updateClient, checkClientCode } from '@/api/clients'
+import { getClient, createClient, updateClient, previewClientCode } from '@/api/clients'
 import { getBranches } from '@/api/branches'
 import { useToast } from '@/composables/useToast'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
@@ -207,16 +190,8 @@ const isEdit = computed(() => !!route.params.id)
 const saving = ref(false)
 const branches = ref([])
 const selectedBranchId = ref(null)
-const selectedBranchCode = ref('')
-const codeSuffix = ref('')
-const codeStatus = ref('') // '' | 'ok' | 'taken'
-let codeTimer = null
-
-// Full code = branch prefix + suffix
-const fullCode = computed(() => {
-  if (!selectedBranchCode.value || !codeSuffix.value) return ''
-  return selectedBranchCode.value + codeSuffix.value
-})
+const codePreview = ref('')
+const loadingCode = ref(false)
 
 const enableOpts = [{ id: true, name: 'Yes' }, { id: false, name: 'No' }]
 const labelOpts  = [
@@ -229,38 +204,41 @@ const form = ref({
   phones: [], banks: [], products: []
 })
 
-function onBranchChange(id) {
-  const b = branches.value.find(x => x.id === id)
-  selectedBranchCode.value = b?.code || ''
-  codeSuffix.value = ''
-  codeStatus.value = ''
-  // Branch prefix changed - rebuild every product's account_id from its
-  // existing suffix against the new prefix.
-  form.value.products.forEach(pr => {
-    pr.account_id = selectedBranchCode.value + (pr.account_suffix || '')
-  })
+// Product dropdown shows "Name (CODE)" so the user can tell products apart by code.
+const productTypeOptions = computed(() =>
+  (lookup.productTypes || []).map(p => ({ id: p.id, name: p.code ? `${p.name} (${p.code})` : p.name, code: p.code }))
+)
+
+// Each product row's account prefix now comes from the selected product's own
+// code, not the branch code — different products can have different prefixes.
+function productPrefix(pr) {
+  const pt = (lookup.productTypes || []).find(p => p.id === pr.product_type_id)
+  return pt?.code || ''
 }
 
-function onCodeInput() {
-  codeStatus.value = ''
-  clearTimeout(codeTimer)
-  if (!fullCode.value) return
-  codeTimer = setTimeout(async () => {
-    try {
-      const excludeId = isEdit.value ? route.params.id : null
-      const res = await checkClientCode(fullCode.value, excludeId)
-      codeStatus.value = res.data?.available ? 'ok' : 'taken'
-    } catch { codeStatus.value = '' }
-  }, 400)
+function onProductTypeChange(pr) {
+  // Product changed → prefix source changed, rebuild this row's account_id
+  // from its existing suffix against the new product's code.
+  pr.account_id = productPrefix(pr) + (pr.account_suffix || '')
+}
+
+async function onBranchChange(id) {
+  codePreview.value = ''
+  if (!id) return
+  loadingCode.value = true
+  try {
+    const res = await previewClientCode(id)
+    codePreview.value = res.data?.code || ''
+  } catch { codePreview.value = '' }
+  finally { loadingCode.value = false }
 }
 
 function addPhone()   { form.value.phones.push({ phone: '', label: 'primary', is_primary: form.value.phones.length === 0, is_active: true, sort_order: form.value.phones.length }) }
 function addBank()    { form.value.banks.push({ bank_type_id: lookup.bankTypes.length === 1 ? lookup.bankTypes[0].id : null, account_no: '', account_name: '', is_active: true, sort_order: form.value.banks.length }) }
 function addProduct() {
-  form.value.products.push({
-    product_type_id: lookup.productTypes.length === 1 ? lookup.productTypes[0].id : null,
-    account_id: '', account_suffix: '', is_active: true, sort_order: form.value.products.length
-  })
+  const defaultId = lookup.productTypes.length === 1 ? lookup.productTypes[0].id : null
+  const row = { product_type_id: defaultId, account_id: '', account_suffix: '', is_active: true, sort_order: form.value.products.length }
+  form.value.products.push(row)
 }
 
 onMounted(async () => {
@@ -271,7 +249,7 @@ onMounted(async () => {
   if (!isEdit.value) {
     if (branches.value.length === 1) {
       selectedBranchId.value = branches.value[0].id
-      onBranchChange(selectedBranchId.value)
+      await onBranchChange(selectedBranchId.value)
     }
     if (lookup.contactSources.length === 1) {
       form.value.contact_source_id = lookup.contactSources[0].id
@@ -289,38 +267,36 @@ onMounted(async () => {
         branch_id: d.branch_id || d.branch?.id || null,
         phones: d.phones || [], banks, products
       })
-      // Restore branch + code split for edit
+      codePreview.value = d.code || ''
+      // Restore branch selection (code stays fixed on edit — not regenerated)
       const branch = branches.value.find(b => b.id === form.value.branch_id)
       if (branch) {
         selectedBranchId.value = branch.id
-        selectedBranchCode.value = branch.code
-        // suffix = everything after the branch code prefix
-        codeSuffix.value = d.code.startsWith(branch.code) ? d.code.slice(branch.code.length) : d.code
-        // Same split for each product's account_id, now that we know the branch prefix
-        form.value.products = form.value.products.map(p => ({
-          ...p,
-          account_suffix: p.account_id && p.account_id.startsWith(branch.code)
-            ? p.account_id.slice(branch.code.length)
-            : (p.account_id || '')
-        }))
       }
-      codeStatus.value = 'ok'
+      // Split each product's account_id into its suffix using that product's
+      // own code as the prefix (each product type can have a different code).
+      form.value.products = form.value.products.map(p => {
+        const prefix = productPrefix(p)
+        return {
+          ...p,
+          account_suffix: p.account_id && prefix && p.account_id.startsWith(prefix)
+            ? p.account_id.slice(prefix.length)
+            : (p.account_id || '')
+        }
+      })
     } catch { error('Failed to load client') }
   }
 })
 
 async function handleSubmit() {
-  if (!isEdit.value && !fullCode.value) { error('Select branch and enter code'); return }
-  if (codeStatus.value === 'taken') { error('Code already taken'); return }
+  if (!isEdit.value && !selectedBranchId.value) { error('Select a branch'); return }
   if (!form.value.phones.length)   { error('At least one phone is required'); return }
   if (!form.value.products.length) { error('At least one product is required'); return }
   saving.value = true
   try {
-    const payload = {
-      ...form.value,
-      code: isEdit.value ? (fullCode.value || form.value.code) : fullCode.value,
-      branch_id: selectedBranchId.value || form.value.branch_id,
-    }
+    const payload = { ...form.value, branch_id: selectedBranchId.value || form.value.branch_id }
+    // Don't send code on create — backend generates it from the branch sequence
+    if (!isEdit.value) delete payload.code
     if (!payload.date_joined) delete payload.date_joined
     payload.products = payload.products.map(({ account_suffix, ...p }) => p)
     if (isEdit.value) {

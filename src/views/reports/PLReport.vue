@@ -144,7 +144,7 @@ function todayEnd()   { const d = new Date(); const e = new Date(d.getFullYear()
 const filters = ref({ date_from: todayStart(), date_to: todayEnd(), status: '', branch_id: null })
 
 const activeMoreFilters = computed(() => [filters.value.branch_id].filter(Boolean).length)
-const statusOpts = [{ id:'', name:'All' }, { id:'pending',name:'Pending' }, { id:'approved',name:'Approved' }, { id:'rejected',name:'Rejected' }]
+const statusOpts = [{ id:'pending',name:'Pending' }, { id:'approved',name:'Approved' }, { id:'rejected',name:'Rejected' }]
 
 function sumBy(list, currency, field) {
   return list.filter(r => r.currency === currency).reduce((s, r) => s + (r[field] || 0), 0)

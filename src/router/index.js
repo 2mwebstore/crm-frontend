@@ -17,6 +17,7 @@ const router = createRouter({
       children: [
         { path: '', redirect: '/dashboard' },
         { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/dashboard/DashboardView.vue') },
+        { path: 'daily-balance', name: 'DailyBalance', component: () => import('@/views/dashboard/DailyBalanceView.vue') },
 
         // Interesting Clients
         { path: 'interesting-clients',          name: 'InterestingClients', component: () => import('@/views/interesting-clients/ICListView.vue'),   meta: { perms: ['interesting_clients.view'] } },
@@ -57,13 +58,16 @@ const router = createRouter({
         { path: 'roles/:id', name: 'RoleDetail', component: () => import('@/views/roles/RoleDetailView.vue'),     meta: { perms: ['roles.view'] } },
         { path: 'branches',  name: 'Branches',   component: () => import('@/views/branches/BranchListView.vue'),  meta: { perms: ['branch.view'] } },
 
-        // Configuration (lookup tables + exchange rates)
-        { path: 'lookup/levels',          name: 'Levels',         component: () => import('@/views/lookup/LevelsView.vue'),         meta: { perms: ['configuration.view', 'lookup.view'] } },
-        { path: 'lookup/contact-sources', name: 'ContactSources', component: () => import('@/views/lookup/ContactSourcesView.vue'), meta: { perms: ['configuration.view', 'lookup.view'] } },
-        { path: 'lookup/bank-types',      name: 'BankTypes',      component: () => import('@/views/lookup/BankTypesView.vue'),      meta: { perms: ['configuration.view', 'lookup.view'] } },
-        { path: 'lookup/product-types',   name: 'ProductTypes',   component: () => import('@/views/lookup/ProductTypesView.vue'),   meta: { perms: ['configuration.view', 'lookup.view'] } },
-        { path: 'lookup/bonus-options',   name: 'BonusOptions',   component: () => import('@/views/lookup/BonusOptionsView.vue'),   meta: { perms: ['configuration.view', 'lookup.view'] } },
-        { path: 'lookup/currencies',      name: 'Currencies',     component: () => import('@/views/lookup/CurrenciesView.vue'),     meta: { superAdminOnly: true } },
+        // Configuration (lookup tables)
+        { path: 'lookup/levels',          name: 'Levels',         component: () => import('@/views/lookup/LevelsView.vue'),         meta: { perms: ['levels.view'] } },
+        { path: 'lookup/contact-sources', name: 'ContactSources', component: () => import('@/views/lookup/ContactSourcesView.vue'), meta: { perms: ['contact_sources.view'] } },
+        { path: 'lookup/bank-types',      name: 'BankTypes',      component: () => import('@/views/lookup/BankTypesView.vue'),      meta: { perms: ['bank_types.view'] } },
+        { path: 'lookup/product-types',   name: 'ProductTypes',   component: () => import('@/views/lookup/ProductTypesView.vue'),   meta: { perms: ['product_types.view'] } },
+        { path: 'lookup/bonus-options',   name: 'BonusOptions',   component: () => import('@/views/lookup/BonusOptionsView.vue'),   meta: { perms: ['bonus_options.view'] } },
+        { path: 'lookup/currencies',      name: 'Currencies',     component: () => import('@/views/lookup/CurrenciesView.vue'),     meta: { perms: ['currencies.view'] } },
+        { path: 'lookup/company-banks',   name: 'CompanyBanks',   component: () => import('@/views/lookup/CompanyBanksView.vue'),   meta: { perms: ['company_banks.view'] } },
+        { path: '/balance-history/:entityType/:entityId',name: 'balance-history',component: () => import('@/views/lookup/BalanceHistoryView.vue'),},
+
       ]
     },
     { path: '/:pathMatch(.*)*', redirect: '/' }

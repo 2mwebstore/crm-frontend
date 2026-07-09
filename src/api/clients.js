@@ -24,3 +24,4 @@ export const getClientBanks    = (id) => api.get(`/clients/${id}`).then(r => (r.
 export const getClientProducts = (id) => api.get(`/clients/${id}`).then(r => (r.data?.products || []))
 
 export const checkClientCode = (code, excludeId) => api.get('/clients/check-code', { params: { code, exclude_id: excludeId || '' } })
+export const previewClientCode = (branchId) => api.get('/clients/preview-code', { params: { branch_id: branchId } })

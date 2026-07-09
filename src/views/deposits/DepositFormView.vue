@@ -40,15 +40,20 @@
           }"
           v-slot="{ isValid, missing }"
         >
-          <button
-            type="submit"
-            class="btn-primary"
-            :disabled="saving || !isValid"
-            :title="!isValid ? `Missing: ${missing.join(', ')}` : ''"
-            @click="submitForm"
-          >
-            {{ saving ? 'Saving…' : (isEdit ? 'Update Deposit' : 'Create Deposit') }}
-          </button>
+          <div class="flex flex-col items-end gap-1">
+            <p v-if="!isValid" class="text-xs text-amber-600">
+              Missing: {{ missing.join(', ') }}
+            </p>
+            <button
+              type="submit"
+              class="btn-primary"
+              :disabled="saving || !isValid"
+              :title="!isValid ? `Missing: ${missing.join(', ')}` : ''"
+              @click="submitForm"
+            >
+              {{ saving ? 'Saving…' : (isEdit ? 'Update Deposit' : 'Create Deposit') }}
+            </button>
+          </div>
         </RequiredFieldsGuard>
       </template>
     </TransactionForm>

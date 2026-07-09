@@ -117,22 +117,22 @@
             <tr v-else v-for="(row, idx) in items" :key="row.id" class="hover:bg-gray-50/60 transition-colors">
               <td class="table-cell text-gray-400 text-xs">{{ (currentPage - 1) * currentPageSize + idx + 1 }}</td>
               <td class="table-cell text-sm text-gray-700 whitespace-nowrap">{{ fmtDate(row.date) }}</td>
-              <td class="table-cell text-sm text-gray-700">{{ row.created_by?.name || '—' }}</td>
+              <td class="table-cell text-sm text-gray-700  whitespace-nowrap">{{ row.created_by?.name || '—' }}</td>
               <td class="table-cell">
                 <p class="font-medium text-gray-800 text-sm whitespace-nowrap">{{ row.client?.name || '—' }}</p>
-                <p class="text-xs text-gray-400 font-mono">{{ row.client?.code }}</p>
+                <p class="text-xs text-gray-400 font-mono  whitespace-nowrap">{{ row.client?.code }}</p>
               </td>
               <td class="table-cell">
-                <p class="text-sm text-gray-700">{{ row.client_bank?.bank_type?.name || '—' }}</p>
-                <p class="text-xs text-gray-400 font-mono">{{ row.client_bank?.account_no }}</p>
+                <p class="text-sm text-gray-700  whitespace-nowrap">{{ row.client_bank?.bank_type?.name || '—' }}</p>
+                <p class="text-xs text-gray-400 font-mono  whitespace-nowrap">{{ row.client_bank?.account_no }}</p>
               </td>
-              <td class="table-cell text-sm text-gray-700">{{ row.client_product?.product_type?.name || '—' }}</td>
-              <td class="table-cell"><span class="font-mono text-xs text-gray-600">{{ row.client_product?.account_id || '—' }}</span></td>
-              <td class="table-cell text-sm text-gray-700">{{ row.company_bank?.name || '—' }}</td>
+              <td class="table-cell text-sm text-gray-700  whitespace-nowrap">{{ row.client_product?.product_type?.name || '—' }}</td>
+              <td class="table-cell"><span class="font-mono text-xs text-gray-600  whitespace-nowrap">{{ row.client_product?.account_id || '—' }}</span></td>
+              <td class="table-cell text-sm text-gray-700  whitespace-nowrap">{{ row.company_bank?.name || '—' }}</td>
               <td class="table-cell">
                 <span class="font-semibold text-gray-800 whitespace-nowrap">{{ fmtCurrency(row.amount, row.currency) }}</span>
               </td>
-              <td class="table-cell text-sm text-gray-600">{{ row.bonus_option?.name || '—' }}</td>
+              <td class="table-cell text-sm text-gray-600  whitespace-nowrap">{{ row.bonus_option?.name || '—' }}</td>
               <td class="table-cell">
                 <span v-if="row.bonus_amount > 0" class="text-green-600 font-medium text-sm whitespace-nowrap">+{{ fmtCurrency(row.bonus_amount, row.currency) }}</span>
                 <span v-else class="text-gray-400 text-xs">—</span>
@@ -141,9 +141,9 @@
                 <span :class="['badge', statusColor(row.status)]">{{ row.status }}</span>
               </td>
               <td class="table-cell text-sm text-gray-600 whitespace-nowrap">{{ fmtDate(row.approved_at) }}</td>
-              <td class="table-cell text-sm text-gray-700">{{ row.approved_by?.name || '—' }}</td>
+              <td class="table-cell text-sm text-gray-700  whitespace-nowrap">{{ row.approved_by?.name || '—' }}</td>
               <td class="table-cell max-w-32">
-                <p class="text-xs text-gray-600 truncate">{{ row.remark || '—' }}</p>
+                <p class="text-xs text-gray-600 truncate  whitespace-nowrap">{{ row.remark || '—' }}</p>
               </td>
               <td class="table-cell">
                 <div class="flex items-center justify-end gap-1">

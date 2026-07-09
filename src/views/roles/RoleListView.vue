@@ -79,7 +79,7 @@
           </div>
 
           <div class="border border-gray-200 rounded-xl overflow-hidden max-h-96 overflow-y-auto">
-            <div v-for="(perms, group) in grouped" :key="group" class="border-b border-gray-100 last:border-b-0">
+            <div v-for="{ group, perms } in orderedGroups" :key="group" class="border-b border-gray-100 last:border-b-0">
               <!-- Group header -->
               <div class="flex items-center justify-between px-4 py-2 bg-gray-50 sticky top-0">
                 <div class="flex items-center gap-2">
@@ -151,6 +151,72 @@ const showPerms = computed(() => {
   return !editing.value.is_system                         // non-SA only on own roles
 })
 
+// ── Permission group ordering & labels ────────────────────────────────────────
+// Preferred display order — related groups clustered together: client-facing
+// data first, then transactions, then reports, then lookups/configuration,
+// then system administration last. Anything the backend returns that isn't
+// in this list (e.g. a brand new permission group added later) just falls
+// back to alphabetical order at the end — nothing breaks, it just won't be
+// specifically clustered until this list is updated too.
+// Mirrors AppSidebar.vue's own section order exactly, so the Roles page
+// clusters permissions the same way the nav clusters pages:
+//   (Dashboard has no permission group)
+//   CRM        → Interesting Clients, Clients
+//   Transactions → Deposits, Withdrawals, Turn Over Bet, Follow Ups, Reports
+//   Management → Users, Roles & Permissions, Branches
+//   Configuration → Levels, Contact Sources, Bank Types, Company Banks,
+//                    Product Types, Bonus Options, Currencies
+// Any group with no sidebar nav item (lookup/configuration/phone — broad
+// umbrella permissions rather than a page of their own) is appended after,
+// and anything entirely unrecognized falls back to alphabetical at the very
+// end — nothing silently disappears if a new group shows up later.
+const GROUP_ORDER = [
+  // CRM
+  'interesting_clients', 'clients',
+  // Transactions
+  'deposits', 'withdrawals', 'turnover_bets', 'follow_ups', 'reports',
+  // Management
+  'users', 'roles', 'branch',
+  // Configuration
+  'levels', 'contact_sources', 'bank_types', 'company_banks', 'product_types', 'bonus_options', 'currencies',
+  // Broad umbrella permissions with no dedicated sidebar page
+  'lookup', 'configuration', 'phone',
+]
+
+// Labels matched to AppSidebar.vue's own item labels verbatim, so the same
+// thing is called the same name in both places (e.g. sidebar literally
+// says "Turn Over Bet", not "Turnover Bets" — kept identical here).
+const GROUP_LABELS = {
+  interesting_clients: 'Interesting Clients',
+  turnover_bets: 'Turn Over Bet',
+  follow_ups: 'Follow Ups',
+  roles: 'Roles & Permissions',
+  branch: 'Branches',
+  contact_sources: 'Contact Sources',
+  bank_types: 'Bank Types',
+  company_banks: 'Company Banks',
+  product_types: 'Product Types',
+  bonus_options: 'Bonus Options',
+  currencies: 'Currencies',
+  lookup: 'Lookup (General)',
+  configuration: 'Configuration',
+  phone: 'Phone Numbers',
+}
+
+function groupLabel(g) {
+  if (GROUP_LABELS[g]) return GROUP_LABELS[g]
+  return g.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+// Reorders whatever groups the backend returns according to GROUP_ORDER,
+// appending any unlisted group (alphabetically) at the end.
+const orderedGroups = computed(() => {
+  const keys = Object.keys(grouped.value)
+  const known = GROUP_ORDER.filter(g => keys.includes(g))
+  const unknown = keys.filter(g => !GROUP_ORDER.includes(g)).sort()
+  return [...known, ...unknown].map(group => ({ group, perms: grouped.value[group] }))
+})
+
 // ── Permission helpers ─────────────────────────────────────────────────────────
 const totalPerms = computed(() =>
   Object.values(grouped.value).reduce((s, perms) => s + perms.length, 0)
@@ -168,7 +234,6 @@ function isGroupIndeterminate(perms) {
   const n = groupSelectedCount(perms)
   return n > 0 && n < perms.length
 }
-function groupLabel(g) { return g.replace(/_/g, ' ') }
 function checkAll()   { form.value.permission_ids = [...allPermIds.value] }
 function uncheckAll() { form.value.permission_ids = [] }
 function toggleGroup(perms, checked) {

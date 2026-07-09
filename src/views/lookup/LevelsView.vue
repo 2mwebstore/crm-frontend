@@ -9,6 +9,7 @@
     :create-fn="createLevel"
     :update-fn="updateLevel"
     :delete-fn="deleteLevel"
+    perm-group="levels"
   >
     <template #form="{ form }">
       <div>

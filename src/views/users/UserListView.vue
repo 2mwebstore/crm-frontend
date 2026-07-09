@@ -231,13 +231,30 @@
           <div><label class="label">{{ editing ? 'New Password (blank = keep)' : 'Password *' }}</label>
             <input v-model="form.password" type="password" class="input" :required="!editing" /></div>
           <div>
-            <label class="label">Role</label>
-            <SearchableSelect v-model="form.role_id" :options="roles" placeholder="No role" all-label="— No role —" />
+            <label class="label">Role <span class="text-red-500">*</span></label>
+            <SearchableSelect v-model="form.role_id" :options="roles" placeholder="Select a role" />
           </div>
+
+          <!-- Branches multi-select — same pattern as the Super Admin's Edit User modal -->
           <div>
-            <label class="label">Branch <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
-            <SearchableSelect v-model="form.branch_id" :options="allBranches" placeholder="No branch" />
+            <label class="label">Branches <span class="text-red-500">*</span></label>
+            <SearchableSelect
+              v-model="subBranchToAdd"
+              :options="unselectedSubBranches"
+              placeholder="Add a branch…"
+              :show-all="false"
+              @update:modelValue="addSubBranch"
+            />
+            <div v-if="form.branch_ids.length" class="flex flex-wrap gap-2 mt-2">
+              <span v-for="id in form.branch_ids" :key="id"
+                class="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 border border-primary-200 text-xs font-medium px-2.5 py-1 rounded-full">
+                <span class="font-mono">{{ branchLabel(id) }}</span>
+                <button type="button" @click="removeSubBranch(id)" class="text-primary-400 hover:text-primary-700 leading-none">×</button>
+              </span>
+            </div>
+            <p v-else class="text-xs text-gray-400 mt-1">No branches assigned.</p>
           </div>
+
           <div v-if="editing" class="flex items-center gap-2 text-sm">
             <input type="checkbox" v-model="form.is_active" class="accent-primary" />
             <span>Active</span>
@@ -245,7 +262,25 @@
         </div>
         <template #footer>
           <button @click="modal = false" class="btn-secondary">Cancel</button>
-          <button @click="handleSave" class="btn-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save' }}</button>
+          <RequiredFieldsGuard
+            :fields="{
+              Name: form.name,
+              Email: editing ? true : form.email,
+              Password: editing ? true : form.password,
+              Role: form.role_id,
+              Branch: form.branch_ids.length ? true : 0,
+            }"
+            v-slot="{ isValid, missing }"
+          >
+            <button
+              @click="handleSave"
+              class="btn-primary"
+              :disabled="saving || !isValid"
+              :title="!isValid ? `Missing: ${missing.join(', ')}` : ''"
+            >
+              {{ saving ? 'Saving...' : 'Save' }}
+            </button>
+          </RequiredFieldsGuard>
         </template>
       </AppModal>
 
@@ -258,6 +293,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { PlusIcon, PencilIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
 import AppTable from '@/components/common/AppTable.vue'
+import RequiredFieldsGuard from '@/components/ui/RequiredFieldsGuard.vue'
 import AppModal from '@/components/common/AppModal.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
@@ -297,7 +333,7 @@ const loading   = ref(false)
 const saving    = ref(false)
 const allBranches = ref([])
 
-// Branch multi-select state
+// Branch multi-select state (Admin modal)
 const branchToAdd = ref(null)
 
 const unselectedBranches = computed(() =>
@@ -318,6 +354,27 @@ function addBranch(id) {
 
 function removeBranch(id) {
   adminForm.value.branch_ids = adminForm.value.branch_ids.filter(i => i !== id)
+}
+
+// Branch multi-select state (Sub User modal) — same pattern as the Admin
+// modal above, kept as separate refs/functions since the two modals have
+// entirely independent form state (adminForm vs form).
+const subBranchToAdd = ref(null)
+
+const unselectedSubBranches = computed(() =>
+  allBranches.value.filter(b => !form.value.branch_ids.includes(b.id))
+)
+
+function addSubBranch(id) {
+  if (!id) return
+  if (!form.value.branch_ids.includes(id)) {
+    form.value.branch_ids = [...form.value.branch_ids, id]
+  }
+  subBranchToAdd.value = null
+}
+
+function removeSubBranch(id) {
+  form.value.branch_ids = form.value.branch_ids.filter(i => i !== id)
 }
 
 // Options for the "Parent" picker in the admin modal — every non-super-admin
@@ -352,7 +409,7 @@ const modal        = ref(false)
 const editing      = ref(null)
 const deleteTarget = ref(null)
 const deleteDialog = ref(false)
-const form = ref({ name: '', email: '', password: '', role_id: null, branch_id: null, is_active: true })
+const form = ref({ name: '', email: '', password: '', role_id: null, branch_ids: [], is_active: true })
 
 const rootUsers       = computed(() => allUsers.value.filter(u => !u.is_super_admin))
 
@@ -453,11 +510,17 @@ async function doAdminDelete() {
 }
 
 function openCreate() {
-  form.value = { name: '', email: '', password: '', role_id: null, branch_id: null, is_active: true }
+  form.value = { name: '', email: '', password: '', role_id: null, branch_ids: [], is_active: true }
+  subBranchToAdd.value = null
   editing.value = null; modal.value = true
 }
 function openEdit(row) {
-  form.value = { name: row.name, password: '', role_id: row.role_id || null, branch_id: row.branch_id || null, is_active: row.is_active }
+  form.value = {
+    name: row.name, password: '', role_id: row.role_id || null,
+    branch_ids: (row.branches || []).map(b => b.id),
+    is_active: row.is_active,
+  }
+  subBranchToAdd.value = null
   editing.value = row; modal.value = true
 }
 function confirmDelete(row) { deleteTarget.value = row; deleteDialog.value = true }
@@ -465,11 +528,9 @@ function confirmDelete(row) { deleteTarget.value = row; deleteDialog.value = tru
 async function handleSave() {
   saving.value = true
   try {
-    const payload = { ...form.value }
+ 
+    const payload = { ...form.value, branch_ids: form.value.branch_ids || [] }
     if (!payload.password) delete payload.password
-    // Wrap single branch into branch_ids array for backend
-    payload.branch_ids = payload.branch_id ? [payload.branch_id] : []
-    delete payload.branch_id
     if (editing.value) { await updateSubUser(editing.value.id, payload); success('Updated') }
     else               { await createSubUser(payload);                    success('Sub user created') }
     modal.value = false; load()

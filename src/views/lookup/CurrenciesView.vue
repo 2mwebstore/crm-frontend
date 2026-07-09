@@ -8,6 +8,7 @@
     :create-fn="createCurrency"
     :update-fn="updateCurrency"
     :delete-fn="deleteCurrency"
+    perm-group="currencies"
   >
     <template #form="{ form }">
       <div>

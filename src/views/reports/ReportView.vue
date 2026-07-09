@@ -22,12 +22,13 @@
     <TurnoverReport   v-if="activeTab === 'turnover'" />
     <FollowUpReport   v-if="activeTab === 'followups'" />
     <PLReport         v-if="activeTab === 'pl'" />
+    <TransactionsFeedReport v-if="activeTab === 'transactions'" />
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { StarIcon, UserGroupIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, CurrencyDollarIcon, CalendarDaysIcon, ScaleIcon } from '@heroicons/vue/24/outline'
+import { StarIcon, UserGroupIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, CurrencyDollarIcon, CalendarDaysIcon, ScaleIcon, QueueListIcon } from '@heroicons/vue/24/outline'
 import ICReport         from './ICReport.vue'
 import ClientReport     from './ClientReport.vue'
 import DepositReport    from './DepositReport.vue'
@@ -35,15 +36,17 @@ import WithdrawalReport from './WithdrawalReport.vue'
 import TurnoverReport   from './TurnoverReport.vue'
 import FollowUpReport   from './FollowUpReport.vue'
 import PLReport         from './PLReport.vue'
+import TransactionsFeedReport from './TransactionsFeedReport.vue'
 
 const activeTab = ref('ic')
 const tabs = [
-  { id: 'ic',          label: 'Interesting Clients', icon: StarIcon },
-  { id: 'clients',     label: 'Clients',             icon: UserGroupIcon },
-  { id: 'deposits',    label: 'Deposits',            icon: ArrowDownTrayIcon },
-  { id: 'withdrawals', label: 'Withdrawals',         icon: ArrowUpTrayIcon },
-  { id: 'turnover',    label: 'Turn Over Bet',       icon: CurrencyDollarIcon },
-  { id: 'followups',   label: 'Follow Ups',          icon: CalendarDaysIcon },
-  { id: 'pl',          label: 'Profit & Loss',       icon: ScaleIcon },
+  { id: 'ic',            label: 'Interesting Clients', icon: StarIcon },
+  { id: 'clients',       label: 'Clients',             icon: UserGroupIcon },
+  { id: 'deposits',      label: 'Deposits',            icon: ArrowDownTrayIcon },
+  { id: 'withdrawals',   label: 'Withdrawals',         icon: ArrowUpTrayIcon },
+  { id: 'turnover',      label: 'Turn Over Bet',       icon: CurrencyDollarIcon },
+  { id: 'followups',     label: 'Follow Ups',          icon: CalendarDaysIcon },
+  { id: 'pl',            label: 'Profit & Loss',       icon: ScaleIcon },
+  { id: 'transactions',  label: 'All Transactions',    icon: QueueListIcon },
 ]
 </script>

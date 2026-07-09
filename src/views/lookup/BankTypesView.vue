@@ -8,6 +8,7 @@
     :create-fn="createBankType"
     :update-fn="updateBankType"
     :delete-fn="deleteBankType"
+    perm-group="bank_types"
   >
     <template #form="{ form }">
       <div>

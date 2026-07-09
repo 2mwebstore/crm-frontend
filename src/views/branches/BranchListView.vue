@@ -52,8 +52,8 @@
               <td class="table-cell text-sm text-gray-600">{{ row.created_by?.name || '—' }}</td>
               <td v-if="auth.isSuperAdmin" class="table-cell">
                 <div class="flex items-center justify-end gap-1">
-                  <button v-if="auth.canAny('configuration.manage', 'lookup.manage')" @click="openEdit(row)" class="btn-icon"><PencilIcon class="w-4 h-4" /></button>
-                  <button v-if="auth.canAny('configuration.manage', 'lookup.manage')" @click="confirmDelete(row)" class="btn-icon text-red-500"><TrashIcon class="w-4 h-4" /></button>
+                  <button v-if="auth.canAny('branch.manage')" @click="openEdit(row)" class="btn-icon"><PencilIcon class="w-4 h-4" /></button>
+                  <button v-if="auth.canAny('branch.manage')" @click="confirmDelete(row)" class="btn-icon text-red-500"><TrashIcon class="w-4 h-4" /></button>
                 </div>
               </td>
             </tr>
@@ -84,7 +84,7 @@
           <input v-model="form.code" class="input font-mono uppercase" placeholder="e.g. PHNM" maxlength="10" required />
           <p class="text-xs text-gray-400 mt-1">
             Uppercase letters only, max 10 chars. Codes will look like:
-            <span class="font-mono font-semibold" style="color:#938af4">{{ form.code || 'PHNM' }}0000001</span>
+            <span class="font-mono font-semibold" style="color:#938af4">{{ form.code || 'ER' }}-0000001</span>
           </p>
         </div>
         <div>

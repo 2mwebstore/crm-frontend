@@ -82,7 +82,6 @@
               <td class="table-cell">
                 <div v-if="row.branch" class="text-sm text-gray-700">
                   {{ row.branch.name }}
-                  <span class="font-mono text-xs text-gray-400 ml-1">({{ row.branch.code }})</span>
                 </div>
                 <span v-else class="text-gray-400 text-xs">—</span>
               </td>
@@ -159,35 +158,30 @@
         </div>
         <div class="flex items-start gap-3 p-3 bg-teal-50 rounded-lg border border-teal-100 text-sm text-teal-800">
           <ArrowRightCircleIcon class="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
-          <p>Creates a new Client record with all phone numbers copied. Set the branch and code for the new client below.</p>
+          <p>Creates a new Client record with all phone numbers copied. Set the branch below and the code will be generated automatically.</p>
         </div>
         <div>
           <label class="label">Branch</label>
           <SearchableSelect v-model="convertForm.branch_id" :options="branches" placeholder="Select branch" @update:modelValue="onConvertBranchChange" />
         </div>
         <div>
-          <label class="label">Client Code <span class="text-red-500">*</span></label>
-          <div class="flex items-center gap-0">
-            <span class="inline-flex items-center px-3 h-10 rounded-l-lg border border-r-0 border-gray-200 bg-gray-50 text-sm font-mono font-bold whitespace-nowrap" style="color:#938af4">
-              {{ convertBranchCode || '—' }}
+          <label class="label">Client Code (auto-generated)</label>
+          <div class="input bg-gray-50 flex items-center gap-2 cursor-default select-none">
+            <span v-if="convertCodePreview" class="font-mono font-bold text-sm" style="color:#938af4">{{ convertCodePreview }}</span>
+            <span v-else class="text-gray-400 text-sm">Select branch to preview</span>
+            <span v-if="convertLoadingCode" class="ml-auto">
+              <svg class="animate-spin w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
             </span>
-            <input v-model="convertSuffix" class="input rounded-l-none font-mono uppercase flex-1" placeholder="001" maxlength="3"
-              @input="convertSuffix = convertSuffix.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,3); checkConvertCode()" />
           </div>
-          <p class="text-xs mt-1" :class="convertCodeStatus === 'ok' ? 'text-green-500' : convertCodeStatus === 'taken' ? 'text-red-500' : 'text-gray-400'">
-            <template v-if="convertBranchCode && convertSuffix">
-              Full code: <span class="font-mono font-bold">{{ convertBranchCode + convertSuffix }}</span>
-              <span v-if="convertCodeStatus === 'ok'"> ✓ available</span>
-              <span v-else-if="convertCodeStatus === 'taken'"> ✗ already taken</span>
-            </template>
-            <template v-else>Select branch then enter 3-char suffix</template>
-          </p>
         </div>
       </div>
       <template #footer>
         <button @click="convertModal = false" class="btn-secondary" :disabled="converting">Cancel</button>
         <button @click="doConvert" class="btn-primary flex items-center gap-2"
-          :disabled="converting || !convertBranchCode || !convertSuffix || convertCodeStatus === 'taken'">
+          :disabled="converting || !convertForm.branch_id || !convertCodePreview">
           <svg v-if="converting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
@@ -210,7 +204,7 @@ import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import PageSizeSelect from '@/components/common/PageSizeSelect.vue'
 import { getICs, deleteIC, convertIC } from '@/api/interesting-clients'
 import { getBranches } from '@/api/branches'
-import { checkClientCode } from '@/api/clients'
+import { previewClientCode } from '@/api/clients'
 import { getUsersInScope } from '@/api/users'
 import { useLookupStore } from '@/stores/lookup'
 import { useToast } from '@/composables/useToast'
@@ -239,12 +233,10 @@ const convertTarget = ref(null)
 const convertModal  = ref(false)
 const converting    = ref(false)
 
-const convertForm       = ref({ branch_id: null })
-const convertBranchCode = ref('')
-const convertSuffix     = ref('')
-const convertCodeStatus = ref('')
-let convertCodeTimer    = null
-let debounceTimer       = null
+const convertForm         = ref({ branch_id: null })
+const convertCodePreview  = ref('')
+const convertLoadingCode  = ref(false)
+let debounceTimer         = null
 
 const filters       = ref({ search: '', is_active: null, is_converted: null, branch_id: null, created_by_id: null, contact_source_id: null})
 const activeOpts    = [{ id: 'true', name: 'Active' }, { id: 'false', name: 'Inactive' }]
@@ -288,38 +280,29 @@ async function doDelete() {
 }
 
 function openConvert(row) {
-  convertTarget.value     = row
-  convertForm.value       = { branch_id: null }
-  convertBranchCode.value = ''
-  convertSuffix.value     = ''
-  convertCodeStatus.value = ''
-  convertModal.value      = true
+  convertTarget.value        = row
+  convertForm.value          = { branch_id: null }
+  convertCodePreview.value   = ''
+  convertModal.value         = true
 }
-function onConvertBranchChange(id) {
-  const b = branches.value.find(x => x.id === id)
-  convertBranchCode.value = b?.code || ''
-  convertSuffix.value     = ''
-  convertCodeStatus.value = ''
+
+async function onConvertBranchChange(id) {
+  convertCodePreview.value = ''
+  if (!id) return
+  convertLoadingCode.value = true
+  try {
+    const res = await previewClientCode(id)
+    convertCodePreview.value = res.data?.code || ''
+  } catch { convertCodePreview.value = '' }
+  finally { convertLoadingCode.value = false }
 }
-function checkConvertCode() {
-  convertCodeStatus.value = ''
-  clearTimeout(convertCodeTimer)
-  const full = convertBranchCode.value + convertSuffix.value
-  if (!full) return
-  convertCodeTimer = setTimeout(async () => {
-    try {
-      const res = await checkClientCode(full, null)
-      convertCodeStatus.value = res.data?.available ? 'ok' : 'taken'
-    } catch { convertCodeStatus.value = '' }
-  }, 400)
-}
+
 async function doConvert() {
-  const fullCode = convertBranchCode.value + convertSuffix.value
-  if (!fullCode) { error('Branch and code are required'); return }
-  if (convertCodeStatus.value === 'taken') { error('Client code already taken'); return }
+  if (!convertForm.value.branch_id) { error('Select a branch'); return }
+  if (!convertCodePreview.value)    { error('Code preview not ready yet'); return }
   converting.value = true
   try {
-    const res = await convertIC(convertTarget.value.id, { code: fullCode, branch_id: convertForm.value.branch_id || undefined })
+    const res = await convertIC(convertTarget.value.id, { code: convertCodePreview.value, branch_id: convertForm.value.branch_id })
     success(`"${convertTarget.value.full_name}" converted to client!`)
     convertModal.value = false
     const clientId = res.data?.id

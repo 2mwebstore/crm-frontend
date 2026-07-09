@@ -94,16 +94,27 @@
 
         <div>
           <label class="label">Amount <span class="text-red-500">*</span></label>
-          <input v-model.number="form.amount" type="number" step="0.01" min="0" class="input" @blur="form.amount = form.amount || 0" />
+          <input
+            ref="amountInputEl"
+            :value="amountDisplay"
+            type="text"
+            inputmode="decimal"
+            class="input font-mono"
+            placeholder="0.00"
+            @input="onAmountInput"
+            @focus="onAmountFocus"
+          />
         </div>
 
         <div>
           <label class="label">Currency</label>
-          <SearchableSelect
-            v-model="form.currency"
-            :options="[{id:'USD',name:'USD — US Dollar'},{id:'KHR',name:'KHR — Cambodian Riel'}]"
-            value-key="id" label-key="name" placeholder="Currency" :show-all="false" :disabled="isEdit"
-          />
+          <div class="input bg-gray-50 flex items-center gap-2 cursor-default select-none">
+            <span v-if="selectedCompanyBankCurrency" class="font-mono font-semibold text-sm text-gray-700">
+              {{ selectedCompanyBankCurrency }}
+            </span>
+            <span v-else class="text-gray-400 text-sm">Select a company bank first…</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">Set automatically from the selected Company Bank</p>
         </div>
 
         <div>
@@ -118,27 +129,27 @@
 
         <div>
           <label class="label">Bonus Amount <span class="text-xs text-gray-400 font-normal ml-1">(manual)</span></label>
-          <input v-model.number="form.bonus_amount" type="number" step="0.01" min="0" class="input" @blur="form.bonus_amount = form.bonus_amount || 0" />
+          <input v-model.number="form.bonus_amount" type="number" step="0.01" class="input" @blur="form.bonus_amount = form.bonus_amount || 0" />
         </div>
 
         <div>
           <label class="label">Bal <span class="text-xs text-gray-400 font-normal ml-1">(Balance — manual)</span></label>
-          <input v-model.number="form.bal" type="number" step="0.01" min="0" class="input" @blur="form.bal = form.bal || 0" />
+          <input v-model.number="form.bal" type="number" step="0.01" class="input" @blur="form.bal = form.bal || 0" />
         </div>
 
         <div>
           <label class="label">TO <span class="text-xs text-gray-400 font-normal ml-1">(Turnover — manual)</span></label>
-          <input v-model.number="form.to" type="number" step="0.01" min="0" class="input" @blur="form.to = form.to || 0" />
+          <input v-model.number="form.to" type="number" step="0.01" class="input" @blur="form.to = form.to || 0" />
         </div>
 
         <div>
           <label class="label">OS <span class="text-xs text-gray-400 font-normal ml-1">(Outstanding — manual)</span></label>
-          <input v-model.number="form.os" type="number" step="0.01" min="0" class="input" @blur="form.os = form.os || 0" />
+          <input v-model.number="form.os" type="number" step="0.01" class="input" @blur="form.os = form.os || 0" />
         </div>
 
         <div>
           <label class="label">Play <span class="text-xs text-gray-400 font-normal ml-1">(manual)</span></label>
-          <input v-model.number="form.play" type="number" step="0.01" min="0" class="input" @blur="form.play = form.play || 0" />
+          <input v-model.number="form.play" type="number" step="0.01" class="input" @blur="form.play = form.play || 0" />
         </div>
 
       </div>
@@ -157,11 +168,11 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue'
+import { ref, watch, computed, onMounted, nextTick } from 'vue'
 import { useLookupStore } from '@/stores/lookup'
 import { useAuthStore } from '@/stores/auth'
 import { getClients, getClient } from '@/api/clients'
-import { getBankTypes, getBonusOptions } from '@/api/lookup'
+import { getBonusOptions, getCompanyBanks } from '@/api/lookup'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import DatePicker from '@/components/ui/DatePicker.vue'
 const props = defineProps({
@@ -223,7 +234,104 @@ const companyBankOptions = computed(() => {
   const list = companyBanks.value.length > 0
     ? companyBanks.value
     : (props.initialCompanyBank ? [props.initialCompanyBank] : [])
-  return list.map(cb => ({ id: cb.id, name: cb.name, sub: cb.code }))
+  return list.map(cb => ({
+    id: cb.id,
+    name: `${cb.account_name}${cb.bank_type?.name ? ' — ' + cb.bank_type.name : ''}`,
+    sub: cb.account_number + (cb.currency_type?.code ? ` · ${cb.currency_type.code}` : ''),
+  }))
+})
+
+// Currency is no longer picked manually — it's derived from whichever
+// company bank is currently selected (each company bank account has its
+// own fixed currency), and kept in sync via the watcher below.
+const selectedCompanyBank = computed(() => {
+  const list = companyBanks.value.length > 0 ? companyBanks.value : (props.initialCompanyBank ? [props.initialCompanyBank] : [])
+  return list.find(cb => cb.id === form.value.company_bank_id) || null
+})
+const selectedCompanyBankCurrency = computed(() => selectedCompanyBank.value?.currency_type?.code || '')
+
+// Live-formatted Amount input, with the cursor kept in the right place as
+// you type — not just formatted on blur.
+//
+// amountRaw is the actual source of truth: a plain digit/decimal-point
+// string (e.g. "1234.5"). form.amount is kept in sync with it on every
+// keystroke. We can't use form.amount itself as the source of truth for
+// display, because a real Number can't represent an in-progress value like
+// "12." (trailing dot) or "12.50" (trailing zero) — it would collapse to
+// 12, losing exactly what the user just typed.
+const amountInputEl = ref(null)
+const amountRaw = ref(form.value.amount ? String(form.value.amount) : '')
+
+const amountDisplay = computed(() => {
+  if (amountRaw.value === '') return ''
+  const [intPart, decPart] = amountRaw.value.split('.')
+  const formattedInt = intPart === '' ? '0' : Number(intPart).toLocaleString('en-US')
+  return decPart !== undefined ? `${formattedInt}.${decPart}` : formattedInt
+})
+
+// Counts digit characters in str before index `pos` — used to find "how
+// many digits has the user typed up to the cursor", which stays meaningful
+// even after we reformat the string with commas.
+function countDigitsBefore(str, pos) {
+  let count = 0
+  for (let i = 0; i < pos && i < str.length; i++) {
+    if (str[i] >= '0' && str[i] <= '9') count++
+  }
+  return count
+}
+// Inverse: finds the index in `str` right after the Nth digit character —
+// i.e. where the cursor should land so it stays after the same digits the
+// user was originally positioned after, even though commas shifted things.
+function positionAfterNDigits(str, n) {
+  if (n <= 0) return 0
+  let count = 0
+  for (let i = 0; i < str.length; i++) {
+    if (str[i] >= '0' && str[i] <= '9') {
+      count++
+      if (count === n) return i + 1
+    }
+  }
+  return str.length
+}
+
+async function onAmountInput(e) {
+  const rawInput = e.target.value
+  const cursorPos = e.target.selectionStart ?? rawInput.length
+  const digitsBeforeCursor = countDigitsBefore(rawInput, cursorPos)
+
+  // Sanitize: strip everything except digits and a single decimal point,
+  // cap to 2 decimal places.
+  let s = rawInput.replace(/[^0-9.]/g, '')
+  const firstDot = s.indexOf('.')
+  if (firstDot !== -1) {
+    s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '')
+    const [intPart, decPart] = s.split('.')
+    s = intPart + '.' + decPart.slice(0, 2)
+  }
+  amountRaw.value = s
+  form.value.amount = (s === '' || s === '.') ? 0 : Number(s)
+
+  // Wait for Vue to re-render the input with the newly formatted value,
+  // then move the cursor back to sit after the same digits the user just
+  // typed (rather than wherever it lands by default, usually the end).
+  await nextTick()
+  if (amountInputEl.value) {
+    const newPos = positionAfterNDigits(amountDisplay.value, digitsBeforeCursor)
+    amountInputEl.value.setSelectionRange(newPos, newPos)
+  }
+}
+
+function onAmountFocus(e) { e.target.select() }
+
+// Keep amountRaw in sync with external changes to form.amount (e.g. the
+// parent view replacing the whole form object on edit-mode load) — skip it
+// when the new value matches what we just wrote ourselves, so typing isn't
+// disrupted by our own updates echoing back.
+watch(() => form.value.amount, (val) => {
+  const current = amountRaw.value === '' ? 0 : Number(amountRaw.value)
+  if (val !== current) {
+    amountRaw.value = val ? String(val) : ''
+  }
 })
 
 async function loadCompanyBanks(branchId = null) {
@@ -233,7 +341,7 @@ async function loadCompanyBanks(branchId = null) {
   }
   loadingCompanyBanks.value = true
   try {
-    const res = await getBankTypes({ branch_id: branchId })
+    const res = await getCompanyBanks({ branch_id: branchId, show_all: false })
     companyBanks.value = res.data || []
     if (!props.isEdit && companyBanks.value.length === 1) {
       form.value.company_bank_id = companyBanks.value[0].id
@@ -294,6 +402,13 @@ watch(() => form.value.client_id, async (cid) => {
   if (cid) await loadClientData(cid, true)
 })
 
+// Currency always mirrors the selected company bank's own currency — it's
+// no longer a manual choice. Fires on both explicit user selection and the
+// initial edit-mode/auto-select population of company_bank_id.
+watch(selectedCompanyBankCurrency, (cur) => {
+  if (cur) form.value.currency = cur
+})
+
 // Clear selections that belonged to the previous branch, then refetch the
 // client list, company banks, and bonus options scoped to the new branch —
 // in that order, so any single-result auto-select from the loaders below
@@ -306,6 +421,7 @@ watch(() => props.branchId, async (bid) => {
     form.value.client_product_id = null
     form.value.company_bank_id   = null
     form.value.bonus_option_id   = null
+    form.value.currency          = ''
     clientBanks.value    = []
     clientProducts.value = []
   }
