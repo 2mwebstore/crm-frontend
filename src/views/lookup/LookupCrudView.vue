@@ -58,6 +58,9 @@
           <button v-if="topupField && withdrawFn && canBalance" @click="openBalanceModal(row, 'withdrawal')" class="btn-icon text-orange-600" title="Withdraw">
             <MinusCircleIcon class="w-4 h-4" />
           </button>
+          <button v-if="topupField && adjustFn && canAdjust" @click="openAdjustModal(row)" class="btn-icon text-indigo-600" title="Adjust">
+            <ScaleIcon class="w-4 h-4" />
+          </button>
           <button v-if="topupField && entityType" @click="goToHistory(row)" class="btn-icon text-gray-500" title="History">
             <ClockIcon class="w-4 h-4" />
           </button>
@@ -139,6 +142,77 @@
       </template>
     </AppModal>
 
+    <!-- Adjustment Modal — a manual correction (Addition/Subtraction),
+         recorded distinctly from a normal Top Up/Withdraw so it's always
+         clear in the ledger which entries were routine business vs a
+         manual fix. -->
+    <AppModal v-if="topupField" v-model="adjustModal" title="Adjustment" size="sm">
+      <div class="space-y-4">
+        <div class="bg-gray-50 rounded-lg p-3 space-y-1.5 text-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-500">Name</span>
+            <span class="font-medium text-gray-800">{{ adjustTarget?.name || adjustTarget?.account_name || '—' }}</span>
+          </div>
+          <div class="flex items-center justify-between pt-1.5 mt-1 border-t border-gray-200">
+            <span class="text-gray-500">Current {{ topupLabel }}</span>
+            <span class="font-mono font-semibold text-gray-800">
+              {{ Number(adjustTarget?.[topupField] || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+            </span>
+          </div>
+        </div>
+        <div>
+          <label class="label">Direction</label>
+          <div class="flex gap-2">
+            <button
+              type="button"
+              @click="adjustDirection = 'addition'"
+              :class="['btn-secondary flex-1', adjustDirection === 'addition' ? '!bg-emerald-600 !text-white hover:!bg-emerald-700' : '']"
+            >
+              Addition
+            </button>
+            <button
+              type="button"
+              @click="adjustDirection = 'subtraction'"
+              :class="['btn-secondary flex-1', adjustDirection === 'subtraction' ? '!bg-orange-600 !text-white hover:!bg-orange-700' : '']"
+            >
+              Subtraction
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="label">Amount to {{ adjustDirection === 'subtraction' ? 'subtract' : 'add' }}</label>
+          <input
+            v-model="adjustAmountDisplay"
+            type="text"
+            inputmode="decimal"
+            class="input font-mono"
+            placeholder="0.00"
+            @focus="onAdjustAmountFocus"
+          />
+          <p class="text-xs mt-1" :class="adjustAmountInvalid ? 'text-red-500' : 'text-gray-400'">
+            <template v-if="adjustAmountInvalid">Enter a valid positive amount</template>
+            <template v-else-if="adjustDirection === 'subtraction'">Fails if it would take the balance below zero</template>
+            <template v-else>Enter how much to add</template>
+          </p>
+        </div>
+        <div>
+          <label class="label">Remark <span class="text-red-500">*</span></label>
+          <input v-model="adjustRemark" class="input" placeholder="Why is this being adjusted?" />
+          <p class="text-xs text-gray-400 mt-1">A remark is required for adjustments, since these are manual corrections outside routine business.</p>
+        </div>
+      </div>
+      <template #footer>
+        <button @click="adjustModal = false" class="btn-secondary" :disabled="adjustSaving">Cancel</button>
+        <button
+          @click="doAdjust"
+          :class="['btn-primary', adjustDirection === 'subtraction' ? '!bg-orange-600 hover:!bg-orange-700' : '!bg-indigo-600 hover:!bg-indigo-700']"
+          :disabled="adjustSaving || !canSubmitAdjust"
+        >
+          {{ adjustSaving ? 'Saving...' : 'Confirm Adjustment' }}
+        </button>
+      </template>
+    </AppModal>
+
     <ConfirmDialog v-model="deleteDialog" @confirm="doDelete" />
   </div>
 </template>
@@ -146,7 +220,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { PlusIcon, PencilIcon, TrashIcon, BanknotesIcon, MinusCircleIcon, ClockIcon } from '@heroicons/vue/24/outline'
+import { PlusIcon, PencilIcon, TrashIcon, BanknotesIcon, MinusCircleIcon, ClockIcon, ScaleIcon } from '@heroicons/vue/24/outline'
 import AppTable from '@/components/common/AppTable.vue'
 import AppModal from '@/components/common/AppModal.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
@@ -183,9 +257,18 @@ const props = defineProps({
   //   '{group}.edit' / '{group}.delete' for the New/Edit/Delete buttons
   //   respectively. If not set, those buttons stay hidden for non-Super-
   //   Admins (there's no broader fallback permission anymore).
+  // adjustFn: async (id, direction, amount, remark) => Promise — a manual
+  //   correction (direction is 'addition'|'subtraction'), recorded
+  //   distinctly from a normal top-up/withdrawal in the ledger.
+  // adjustmentPerm: permission name gating the Adjust button specifically
+  //   (e.g. 'company_banks.adjustment', 'product_types.adjustment') —
+  //   separate from balancePerm, since correcting a mistake is a more
+  //   sensitive action than routine top-up/withdrawal.
   topupField: { type: String, default: null },
   topupFn: { type: Function, default: null },
   withdrawFn: { type: Function, default: null },
+  adjustFn: { type: Function, default: null },
+  adjustmentPerm: { type: String, default: null },
   entityType: { type: String, default: null },
   topupLabel: { type: String, default: '' },
   balancePerm: { type: String, default: null },
@@ -203,6 +286,7 @@ const canCreate = computed(() => props.permGroup ? auth.can(`${props.permGroup}.
 const canEdit = computed(() => props.permGroup ? auth.can(`${props.permGroup}.edit`) : false)
 const canDelete = computed(() => props.permGroup ? auth.can(`${props.permGroup}.delete`) : false)
 const canBalance = computed(() => props.balancePerm ? auth.can(props.balancePerm) : false)
+const canAdjust = computed(() => props.adjustmentPerm ? auth.can(props.adjustmentPerm) : false)
 
 const items        = ref([])
 const allItems     = ref([])
@@ -305,6 +389,45 @@ const canSubmitBalance = computed(() =>
 
 function onBalanceAmountFocus(e) { e.target.select() }
 
+// Adjustment modal state — kept entirely separate from the Top Up/
+// Withdraw state above (rather than reused) so the two modals can never
+// interfere with each other's in-progress input.
+const adjustModal    = ref(false)
+const adjustTarget   = ref(null)
+const adjustDirection = ref('addition') // 'addition' | 'subtraction'
+const adjustSaving   = ref(false)
+const adjustRemark   = ref('')
+const adjustAmountRaw = ref('')
+
+const adjustAmountDisplay = computed({
+  get() {
+    if (adjustAmountRaw.value === '') return ''
+    const [intPart, decPart] = adjustAmountRaw.value.split('.')
+    const formattedInt = intPart === '' ? '0' : Number(intPart).toLocaleString('en-US')
+    return formattedInt + (decPart !== undefined ? '.' + decPart : '')
+  },
+  set(val) { adjustAmountRaw.value = sanitizeAmountInput(val) }
+})
+
+const adjustAmountNumber = computed(() => {
+  if (adjustAmountRaw.value === '' || adjustAmountRaw.value === '.') return null
+  const n = Number(adjustAmountRaw.value)
+  return Number.isFinite(n) ? n : null
+})
+
+const adjustAmountInvalid = computed(() =>
+  adjustAmountRaw.value !== '' && (adjustAmountNumber.value === null || adjustAmountNumber.value <= 0)
+)
+
+// A remark is required for adjustments (unlike Top Up/Withdraw, where it's
+// optional) — these are manual corrections outside routine business, so
+// there should always be a reason on record.
+const canSubmitAdjust = computed(() =>
+  adjustAmountNumber.value !== null && adjustAmountNumber.value > 0 && adjustRemark.value.trim() !== ''
+)
+
+function onAdjustAmountFocus(e) { e.target.select() }
+
 async function load() {
   loading.value = true
   try { const res = await props.fetchFn(); items.value = res.data || []; allItems.value = res.data || [] } catch { } finally { loading.value = false }
@@ -346,6 +469,25 @@ async function doBalanceChange() {
     balanceModal.value = false
     load()
   } catch (e) { error(e?.error || 'Transaction failed') } finally { balanceSaving.value = false }
+}
+
+function openAdjustModal(row) {
+  adjustTarget.value    = row
+  adjustDirection.value = 'addition'
+  adjustAmountRaw.value = ''
+  adjustRemark.value    = ''
+  adjustModal.value     = true
+}
+
+async function doAdjust() {
+  if (!canSubmitAdjust.value) return
+  adjustSaving.value = true
+  try {
+    await props.adjustFn(adjustTarget.value.id, adjustDirection.value, adjustAmountNumber.value, adjustRemark.value)
+    success(`${topupLabel.value} adjusted`)
+    adjustModal.value = false
+    load()
+  } catch (e) { error(e?.error || 'Adjustment failed') } finally { adjustSaving.value = false }
 }
 
 function goToHistory(row) {

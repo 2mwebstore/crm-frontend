@@ -36,7 +36,7 @@
             Product: form.client_product_id,
             'Client Bank': form.client_bank_id,
             'Company Bank': form.company_bank_id,
-            Amount: form.amount,
+            'Amount or Bonus Amount': (Number(form.amount) > 0 || Number(form.bonus_amount) > 0) ? true : 0,
           }"
           v-slot="{ isValid, missing }"
         >

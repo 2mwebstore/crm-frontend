@@ -12,9 +12,11 @@
     topup-label="Credit"
     entity-type="product_type"
     balance-perm="product_types.topup"
+    adjustment-perm="product_types.adjustment"
     perm-group="product_types"
     :topup-fn="(id, amount, remark) => topupProductTypeCredit(id, amount, remark)"
     :withdraw-fn="(id, amount, remark) => withdrawProductTypeCredit(id, amount, remark)"
+    :adjust-fn="(id, direction, amount, remark) => adjustProductTypeCredit(id, direction, amount, remark)"
   >
     <template #form="{ form }">
       <div>
@@ -53,7 +55,7 @@
 import { ref, onMounted } from 'vue'
 import LookupCrudView from './LookupCrudView.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
-import { getProductTypes, createProductType, updateProductType, deleteProductType, getCurrencies, topupProductTypeCredit, withdrawProductTypeCredit } from '@/api/lookup'
+import { getProductTypes, createProductType, updateProductType, deleteProductType, getCurrencies, topupProductTypeCredit, withdrawProductTypeCredit, adjustProductTypeCredit } from '@/api/lookup'
 
 const columns = [
   { key: 'name', label: 'Name' },

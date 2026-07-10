@@ -89,7 +89,6 @@
               <th class="table-header">Created By</th>
               <th class="table-header">Client</th>
               <th class="table-header">Client Bank</th>
-              <th class="table-header">Product</th>
               <th class="table-header">Account Id</th>
               <th class="table-header">Company Bank</th>
               <th class="table-header">Amount</th>
@@ -126,9 +125,8 @@
                 <p class="text-sm text-gray-700  whitespace-nowrap">{{ row.client_bank?.bank_type?.name || '—' }}</p>
                 <p class="text-xs text-gray-400 font-mono  whitespace-nowrap">{{ row.client_bank?.account_no }}</p>
               </td>
-              <td class="table-cell text-sm text-gray-700  whitespace-nowrap">{{ row.client_product?.product_type?.name || '—' }}</td>
               <td class="table-cell"><span class="font-mono text-xs text-gray-600  whitespace-nowrap">{{ row.client_product?.account_id || '—' }}</span></td>
-              <td class="table-cell text-sm text-gray-700  whitespace-nowrap">{{ row.company_bank?.name || '—' }}</td>
+              <td class="table-cell text-sm text-gray-700  whitespace-nowrap">{{ row.company_bank?.account_name || '—' }}</td>
               <td class="table-cell">
                 <span class="font-semibold text-gray-800 whitespace-nowrap">{{ fmtCurrency(row.amount, row.currency) }}</span>
               </td>

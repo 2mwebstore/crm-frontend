@@ -67,7 +67,7 @@ const groups = computed(() => [
     label: '',
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: HomeIcon, show: true },
-      { to: '/daily-balance', label: 'Daily Balance', icon: BanknotesIcon, show: true },
+      { to: '/daily-balance', label: 'Daily Balance', icon: BanknotesIcon, show: isSA.value || auth.canAny('daily_balance.view', 'daily_balance.start', 'daily_balance.close') },
     ]
   },
   {

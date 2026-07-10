@@ -26,8 +26,36 @@
       </div>
     </div>
 
+    <!-- Tabs -->
+    <div class="flex gap-1 border-b border-gray-200">
+      <button
+        v-for="tab in tabs"
+        :key="tab.id"
+        @click="switchTab(tab.id)"
+        :class="[
+          'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+          activeTab === tab.id
+            ? 'border-indigo-600 text-indigo-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700'
+        ]"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
+
     <!-- Filters -->
-    <div class="card p-4 flex flex-wrap gap-3">
+    <div class="card p-4 flex flex-wrap items-end gap-3">
+      <div>
+        <label class="label text-xs">Date Range</label>
+        <DateRangePicker
+          :model-value="[filters.date_from, filters.date_to]"
+          @update:model-value="v => { filters.date_from = v[0]; filters.date_to = v[1]; reload() }"
+        />
+      </div>
+      <div class="w-44">
+        <label class="label text-xs">Created By</label>
+        <SearchableSelect v-model="filters.created_by_id" :options="users" placeholder="All users" all-label="All users" @update:modelValue="reload" />
+      </div>
       <SearchableSelect v-model="typeFilter" :options="typeOpts" value-key="id" label-key="name" placeholder="All types" all-label="All types" class="w-40" @update:modelValue="reload" />
       <button @click="resetFilters" class="btn-secondary btn-sm">Reset</button>
     </div>
@@ -68,7 +96,7 @@
               <td class="table-cell text-sm text-gray-600 whitespace-nowrap">{{ fmtDate(tx.created_at) }}</td>
               <td class="table-cell">
                 <span :class="['badge', tx.type === 'withdrawal' ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700']">
-                  {{ tx.type === 'withdrawal' ? 'Withdraw' : 'Top Up' }}
+                  {{ typeLabel(tx.type) }}
                 </span>
               </td>
               <td class="table-cell text-right font-mono text-sm text-gray-500">
@@ -105,8 +133,10 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
+import DateRangePicker from '@/components/ui/DateRangePicker.vue'
 import PageSizeSelect from '@/components/common/PageSizeSelect.vue'
 import { getBalanceTransactions } from '@/api/lookup'
+import { getUsersInScope } from '@/api/users'
 
 const route = useRoute()
 const router = useRouter()
@@ -126,17 +156,40 @@ const contextCode      = route.query.code || ''
 const contextCurrency  = route.query.currency || ''
 const contextBalance   = route.query.balance ?? 0
 
+// Two tabs, each mapping straight to a BalanceTransaction `source` value —
+// "Top Up / Withdraw" is routine business (source=configuration), while
+// "Adjustment" is a manual correction (source=adjustment). These are
+// mutually exclusive on the backend, so switching tabs is really just
+// swapping which source filter gets sent.
+const tabs = [
+  { id: 'configuration', label: 'Top Up / Withdraw' },
+  { id: 'adjustment',    label: 'Adjustment' },
+]
+const activeTab = ref('configuration')
+
 const items    = ref([])
 const meta     = ref(null)
 const loading  = ref(false)
 const page     = ref(1)
 const pageSize = ref(20)
 const typeFilter = ref(null)
+const filters = ref({ date_from: '', date_to: '', created_by_id: null })
+const users = ref([])
 
 const typeOpts = [
   { id: 'topup', name: 'Top Up' },
   { id: 'withdrawal', name: 'Withdrawal' },
 ]
+
+// Adjustment ledger rows are stored with the same underlying topup/
+// withdrawal type as ordinary ones — label them Addition/Subtraction on
+// that tab instead, since that's the language used when creating them.
+function typeLabel(txType) {
+  if (activeTab.value === 'adjustment') {
+    return txType === 'withdrawal' ? 'Subtraction' : 'Addition'
+  }
+  return txType === 'withdrawal' ? 'Withdraw' : 'Top Up'
+}
 
 const totalPages = computed(() => meta.value ? Math.max(1, Math.ceil(meta.value.total / pageSize.value)) : 1)
 
@@ -150,8 +203,11 @@ function fmtDate(d) {
 async function load() {
   loading.value = true
   try {
-    const params = { page: page.value, page_size: pageSize.value }
+    const params = { page: page.value, page_size: pageSize.value, source: activeTab.value }
     if (typeFilter.value) params.type = typeFilter.value
+    if (filters.value.date_from) params.date_from = filters.value.date_from
+    if (filters.value.date_to)   params.date_to   = filters.value.date_to
+    if (filters.value.created_by_id) params.created_by_id = filters.value.created_by_id
     const res = await getBalanceTransactions(entityType, entityId, params)
     items.value = res.data?.items || []
     meta.value  = { total: res.data?.total || 0 }
@@ -161,8 +217,15 @@ async function load() {
 function reload()          { page.value = 1; load() }
 function goPage(p)          { page.value = p; load() }
 function onPageSizeChange() { page.value = 1; load() }
-function resetFilters()     { typeFilter.value = null; reload() }
+function resetFilters()     { typeFilter.value = null; filters.value = { date_from: '', date_to: '', created_by_id: null }; reload() }
+function switchTab(id)      { if (activeTab.value === id) return; activeTab.value = id; resetFilters() }
 function goBack()           { router.back() }
 
-onMounted(load)
+onMounted(async () => {
+  load()
+  try {
+    const res = await getUsersInScope()
+    users.value = (res.data || []).map(u => ({ id: u.id, name: u.name, sub: u.email }))
+  } catch {}
+})
 </script>

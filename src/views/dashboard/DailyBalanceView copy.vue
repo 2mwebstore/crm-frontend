@@ -36,30 +36,17 @@
             </button>
           </div>
           <div v-if="today?.snapshot">
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Top-Ups (This Shift)</p>
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Top-Ups / Withdrawals (This Shift)</p>
 
             <p class="text-xs text-gray-500 mt-1.5">Company Bank</p>
-            <p class="text-sm font-bold text-emerald-600">{{ usd(shiftLedgerByEntity.company_bank.depUsd) }}</p>
-            <p class="text-sm font-bold text-emerald-600">{{ khr(shiftLedgerByEntity.company_bank.depKhr) }}</p>
-            <p class="text-xs text-gray-400">{{ shiftLedgerByEntity.company_bank.depCount }} top-up{{ shiftLedgerByEntity.company_bank.depCount === 1 ? '' : 's' }}</p>
+            <p class="text-sm font-bold" :class="incomeColor(shiftLedgerByEntity.company_bank.netUsd)">{{ signedUsd(shiftLedgerByEntity.company_bank.netUsd) }}</p>
+            <p class="text-sm font-bold" :class="incomeColor(shiftLedgerByEntity.company_bank.netKhr)">{{ signedKhr(shiftLedgerByEntity.company_bank.netKhr) }}</p>
+            <p class="text-xs text-gray-400">↑{{ shiftLedgerByEntity.company_bank.topupCount }} · ↓{{ shiftLedgerByEntity.company_bank.withdrawalCount }}</p>
 
             <p class="text-xs text-gray-500 mt-2">Product Type</p>
-            <p class="text-sm font-bold text-emerald-600">{{ usd(shiftLedgerByEntity.product_type.depUsd) }}</p>
-            <p class="text-sm font-bold text-emerald-600">{{ khr(shiftLedgerByEntity.product_type.depKhr) }}</p>
-            <p class="text-xs text-gray-400">{{ shiftLedgerByEntity.product_type.depCount }} top-up{{ shiftLedgerByEntity.product_type.depCount === 1 ? '' : 's' }}</p>
-          </div>
-          <div v-if="today?.snapshot">
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Withdrawals (This Shift)</p>
-
-            <p class="text-xs text-gray-500 mt-1.5">Company Bank</p>
-            <p class="text-sm font-bold text-orange-600">{{ usd(shiftLedgerByEntity.company_bank.witUsd) }}</p>
-            <p class="text-sm font-bold text-orange-600">{{ khr(shiftLedgerByEntity.company_bank.witKhr) }}</p>
-            <p class="text-xs text-gray-400">{{ shiftLedgerByEntity.company_bank.witCount }} withdrawal{{ shiftLedgerByEntity.company_bank.witCount === 1 ? '' : 's' }}</p>
-
-            <p class="text-xs text-gray-500 mt-2">Product Type</p>
-            <p class="text-sm font-bold text-orange-600">{{ usd(shiftLedgerByEntity.product_type.witUsd) }}</p>
-            <p class="text-sm font-bold text-orange-600">{{ khr(shiftLedgerByEntity.product_type.witKhr) }}</p>
-            <p class="text-xs text-gray-400">{{ shiftLedgerByEntity.product_type.witCount }} withdrawal{{ shiftLedgerByEntity.product_type.witCount === 1 ? '' : 's' }}</p>
+            <p class="text-sm font-bold" :class="incomeColor(shiftLedgerByEntity.product_type.netUsd)">{{ signedUsd(shiftLedgerByEntity.product_type.netUsd) }}</p>
+            <p class="text-sm font-bold" :class="incomeColor(shiftLedgerByEntity.product_type.netKhr)">{{ signedKhr(shiftLedgerByEntity.product_type.netKhr) }}</p>
+            <p class="text-xs text-gray-400">↑{{ shiftLedgerByEntity.product_type.topupCount }} · ↓{{ shiftLedgerByEntity.product_type.withdrawalCount }}</p>
           </div>
           <div v-if="today?.snapshot">
             <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Income So Far (Cash)</p>
@@ -290,10 +277,9 @@
                           <th class="table-header">Label</th>
                           <th class="table-header">Currency</th>
                           <th class="table-header text-right">Opening Detail (01)</th>
-                          <th class="table-header text-right">Dep (02a)</th>
-                          <th class="table-header text-right">Wit (02b)</th>
+                          <th class="table-header text-right">Dep/Wit (02)</th>
                           <th class="table-header text-right">Using in Shift (03)</th>
-                          <th class="table-header text-right">Closing Detail (04)=(01+02a-02b+03)</th>
+                          <th class="table-header text-right">Closing Detail (04)=(01+02+03)</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-50">
@@ -302,8 +288,7 @@
                           <td class="table-cell text-gray-800">{{ r.label }}</td>
                           <td class="table-cell font-mono text-gray-500">{{ r.currency }}</td>
                           <td class="table-cell text-right font-mono">{{ fmtAmt(r.opening, r.currency) }}</td>
-                          <td class="table-cell text-right font-mono text-emerald-600">{{ r.dep > 0 ? '+' + fmtAmt(r.dep, r.currency) : '—' }}</td>
-                          <td class="table-cell text-right font-mono text-orange-600">{{ r.wit > 0 ? '-' + fmtAmt(r.wit, r.currency) : '—' }}</td>
+                          <td class="table-cell text-right font-mono" :class="incomeColor(r.depWit)">{{ fmtSignedAmt(r.depWit, r.currency) }}</td>
                           <td class="table-cell text-right font-mono" :class="incomeColor(r.usingInShift)">{{ fmtSignedAmt(r.usingInShift, r.currency) }}</td>
                           <td class="table-cell text-right font-mono font-semibold">{{ fmtAmt(r.closing, r.currency) }}</td>
                         </tr>
@@ -394,10 +379,16 @@ function entityCurrency(bt) {
 }
 
 // Everything in this feature is derived from the balance_transactions
-// LEDGER only — never from Deposit/Withdrawal records directly. Each row's
-// explicit `source` field (not remark-matching) says whether it came from
-// a client Deposit/Withdrawal ("transaction"), a direct admin action
-// ("configuration"), or a manual correction ("adjustment").
+// LEDGER only — never from Deposit/Withdrawal records directly — since the
+// ledger already captures both: entries created automatically when a
+// client Deposit/Withdrawal is processed (remark starts with "Deposit "/
+// "Withdrawal "), AND entries created by a direct admin top-up/withdrawal
+// on a Company Bank or Product Type record (any other remark). This
+// classifies which bucket a given ledger row belongs to.
+function isCustomerOriginated(bt) {
+  const remark = bt.remark || ''
+  return remark.startsWith('Deposit') || remark.startsWith('Withdrawal')
+}
 
 // Builds the full pivoted ledger table for ONE shift — one row per entity
 // (Company Bank account / Product), using that shift's own persisted
@@ -407,18 +398,6 @@ function entityCurrency(bt) {
 // Withdrawal) and "Using in Shift" (company-originated, a direct admin
 // top-up/withdrawal) rather than blending them into one number — matching
 // Closing = Opening + Dep/Wit + Using in Shift.
-// Builds the full pivoted ledger table for ONE shift — one row per entity
-// (Company Bank account / Product), using that shift's own persisted
-// opening detail (row.details, phase='open') plus whatever ledger entries
-// have been loaded for it (shiftLedgers[row.id]).
-//
-// Dep and Wit are each scoped to source='configuration' only (direct admin
-// Top Up / Withdraw on the entity) and kept as two SEPARATE totals rather
-// than netted into one figure — Dep is the sum of configuration top-ups,
-// Wit is the sum of configuration withdrawals. "Using in Shift" is
-// everything else (source='transaction', a client Deposit/Withdrawal side
-// effect, or source='adjustment', a manual correction), netted together.
-// Closing = Opening + Dep - Wit + Using in Shift.
 function shiftLedgerRows(row) {
   const openingByKey = {}
   const labelByKey = {}
@@ -433,8 +412,7 @@ function shiftLedgerRows(row) {
     typeByKey[key] = d.entity_type === 'product_type' ? 'Product' : 'Company Bank'
   }
 
-  const depByKey = {}
-  const witByKey = {}
+  const depWitByKey = {}
   const usingInShiftByKey = {}
   for (const bt of shiftLedgers.value[row.id] || []) {
     const key = `${bt.entity_type}-${bt.entity_id}`
@@ -443,44 +421,36 @@ function shiftLedgerRows(row) {
       typeByKey[key] = bt.entity_type === 'product_type' ? 'Product' : 'Company Bank'
       currencyByKey[key] = currencyByKey[key] || 'USD'
     }
-    const amt = Number(bt.amount || 0)
-    if (bt.source === 'configuration') {
-      if (bt.type === 'withdrawal') witByKey[key] = (witByKey[key] || 0) + amt
-      else depByKey[key] = (depByKey[key] || 0) + amt
+    const delta = bt.type === 'withdrawal' ? -Number(bt.amount || 0) : Number(bt.amount || 0)
+    if (isCustomerOriginated(bt)) {
+      depWitByKey[key] = (depWitByKey[key] || 0) + delta
     } else {
-      const delta = bt.type === 'withdrawal' ? -amt : amt
       usingInShiftByKey[key] = (usingInShiftByKey[key] || 0) + delta
     }
   }
 
   return Object.keys(labelByKey).map(key => {
     const opening = openingByKey[key] ?? 0
-    const dep = depByKey[key] || 0
-    const wit = witByKey[key] || 0
+    const depWit = depWitByKey[key] || 0
     const usingInShift = usingInShiftByKey[key] || 0
     return {
       key,
       type: typeByKey[key],
       label: labelByKey[key],
       currency: currencyByKey[key] || 'USD',
-      opening, dep, wit, usingInShift,
-      closing: opening + dep - wit + usingInShift,
+      opening, depWit, usingInShift,
+      closing: opening + depWit + usingInShift,
     }
   })
 }
 
-
-// Quick-glance breakdown for the "Top-Ups / Withdrawals" stat card —
-// mirrors shiftLedgerRows' three-way split (Dep/Wit scoped to
-// source='configuration', "Using" for everything else) but rolled up per
-// ENTITY TYPE (Company Bank vs Product Type) instead of per individual
-// entity, since this card is a summary, not the full ledger.
+// Quick-glance counts/totals for the "Top-Ups / Withdrawals" stat card —
+// splits today.balance_transactions by ENTITY TYPE first (Company Bank vs
+// Product Type, kept separate rather than blended into one figure), then
+// by type (topup/withdrawal) and currency (resolved the same way as the
+// detailed ledger table below) within each.
 function emptyLedgerBucket() {
-  return {
-    depCount: 0, witCount: 0, depUsd: 0, depKhr: 0, witUsd: 0, witKhr: 0,
-    usingCount: 0, usingUsd: 0, usingKhr: 0,
-    netUsd: 0, netKhr: 0,
-  }
+  return { topupCount: 0, withdrawalCount: 0, topupUsd: 0, topupKhr: 0, withdrawalUsd: 0, withdrawalKhr: 0, netUsd: 0, netKhr: 0 }
 }
 const shiftLedgerByEntity = computed(() => {
   const result = { company_bank: emptyLedgerBucket(), product_type: emptyLedgerBucket() }
@@ -488,26 +458,19 @@ const shiftLedgerByEntity = computed(() => {
     const bucket = bt.entity_type === 'product_type' ? result.product_type : result.company_bank
     const cur = entityCurrency(bt)
     const amt = Number(bt.amount || 0)
-    if (bt.source === 'configuration') {
-      if (bt.type === 'withdrawal') {
-        bucket.witCount++
-        if (cur === 'KHR') bucket.witKhr += amt
-        else bucket.witUsd += amt
-      } else {
-        bucket.depCount++
-        if (cur === 'KHR') bucket.depKhr += amt
-        else bucket.depUsd += amt
-      }
+    if (bt.type === 'withdrawal') {
+      bucket.withdrawalCount++
+      if (cur === 'KHR') bucket.withdrawalKhr += amt
+      else bucket.withdrawalUsd += amt
     } else {
-      bucket.usingCount++
-      const delta = bt.type === 'withdrawal' ? -amt : amt
-      if (cur === 'KHR') bucket.usingKhr += delta
-      else bucket.usingUsd += delta
+      bucket.topupCount++
+      if (cur === 'KHR') bucket.topupKhr += amt
+      else bucket.topupUsd += amt
     }
   }
   for (const bucket of Object.values(result)) {
-    bucket.netUsd = bucket.depUsd - bucket.witUsd + bucket.usingUsd
-    bucket.netKhr = bucket.depKhr - bucket.witKhr + bucket.usingKhr
+    bucket.netUsd = bucket.topupUsd - bucket.withdrawalUsd
+    bucket.netKhr = bucket.topupKhr - bucket.withdrawalKhr
   }
   return result
 })

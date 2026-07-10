@@ -17,7 +17,7 @@ const router = createRouter({
       children: [
         { path: '', redirect: '/dashboard' },
         { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/dashboard/DashboardView.vue') },
-        { path: 'daily-balance', name: 'DailyBalance', component: () => import('@/views/dashboard/DailyBalanceView.vue') },
+        { path: 'daily-balance', name: 'DailyBalance', component: () => import('@/views/dashboard/DailyBalanceView.vue'), meta: { perms: ['daily_balance.view', 'daily_balance.start', 'daily_balance.close'] } },
 
         // Interesting Clients
         { path: 'interesting-clients',          name: 'InterestingClients', component: () => import('@/views/interesting-clients/ICListView.vue'),   meta: { perms: ['interesting_clients.view'] } },

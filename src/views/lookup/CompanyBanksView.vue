@@ -12,9 +12,11 @@
     topup-label="Cash"
     entity-type="company_bank"
     balance-perm="company_banks.topup"
+    adjustment-perm="company_banks.adjustment"
     perm-group="company_banks"
     :topup-fn="(id, amount, remark) => topupCompanyBankCash(id, amount, remark)"
     :withdraw-fn="(id, amount, remark) => withdrawCompanyBankCash(id, amount, remark)"
+    :adjust-fn="(id, direction, amount, remark) => adjustCompanyBankCash(id, direction, amount, remark)"
   >
     <template #form="{ form }">
       <div>
@@ -57,7 +59,7 @@
 import { ref, onMounted } from 'vue'
 import LookupCrudView from './LookupCrudView.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
-import { getCompanyBanks, createCompanyBank, updateCompanyBank, deleteCompanyBank, topupCompanyBankCash, withdrawCompanyBankCash } from '@/api/lookup'
+import { getCompanyBanks, createCompanyBank, updateCompanyBank, deleteCompanyBank, topupCompanyBankCash, withdrawCompanyBankCash, adjustCompanyBankCash } from '@/api/lookup'
 import { getBankTypes, getCurrencies } from '@/api/lookup'
 import { getBranches } from '@/api/branches'
 

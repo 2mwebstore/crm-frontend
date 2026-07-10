@@ -20,6 +20,7 @@ export const updateCompanyBank = (id, d) => api.put(`/company-banks/${id}`, d)
 export const deleteCompanyBank = (id) => api.delete(`/company-banks/${id}`)
 export const topupCompanyBankCash      = (id, amount, remark) => api.post(`/company-banks/${id}/topup`, { amount, remark })
 export const withdrawCompanyBankCash   = (id, amount, remark) => api.post(`/company-banks/${id}/withdraw`, { amount, remark })
+export const adjustCompanyBankCash     = (id, direction, amount, remark) => api.post(`/company-banks/${id}/adjust`, { direction, amount, remark })
 
 
 export const getProductTypes = (params) => api.get('/product-types', { params })
@@ -28,6 +29,7 @@ export const updateProductType = (id, d) => api.put(`/product-types/${id}`, d)
 export const deleteProductType = (id) => api.delete(`/product-types/${id}`)
 export const topupProductTypeCredit    = (id, amount, remark) => api.post(`/product-types/${id}/topup`, { amount, remark })
 export const withdrawProductTypeCredit = (id, amount, remark) => api.post(`/product-types/${id}/withdraw`, { amount, remark })
+export const adjustProductTypeCredit   = (id, direction, amount, remark) => api.post(`/product-types/${id}/adjust`, { direction, amount, remark })
 
 export const getBonusOptions = (params) => api.get('/bonus-option-types', { params })
 export const createBonusOption = (d) => api.post('/bonus-option-types', d)
