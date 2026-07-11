@@ -289,11 +289,14 @@
                           <th class="table-header">Type</th>
                           <th class="table-header">Label</th>
                           <th class="table-header">Currency</th>
-                          <th class="table-header text-right">Opening Detail (01)</th>
+                          <th class="table-header text-right">Opening (01)</th>
                           <th class="table-header text-right">Dep (02a)</th>
                           <th class="table-header text-right">Wit (02b)</th>
-                          <th class="table-header text-right">Using in Shift (03)</th>
-                          <th class="table-header text-right">Closing Detail (04)=(01+02a-02b+03)</th>
+                          <th class="table-header text-right">Txn Principal (03a)</th>
+                          <th class="table-header text-right">Txn Bonus (03b)</th>
+                          <th class="table-header text-right">Adj + (03c)</th>
+                          <th class="table-header text-right">Adj − (03d)</th>
+                          <th class="table-header text-right">Closing (04)</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-50">
@@ -304,7 +307,10 @@
                           <td class="table-cell text-right font-mono">{{ fmtAmt(r.opening, r.currency) }}</td>
                           <td class="table-cell text-right font-mono text-emerald-600">{{ r.dep > 0 ? '+' + fmtAmt(r.dep, r.currency) : '—' }}</td>
                           <td class="table-cell text-right font-mono text-orange-600">{{ r.wit > 0 ? '-' + fmtAmt(r.wit, r.currency) : '—' }}</td>
-                          <td class="table-cell text-right font-mono" :class="incomeColor(r.usingInShift)">{{ fmtSignedAmt(r.usingInShift, r.currency) }}</td>
+                          <td class="table-cell text-right font-mono" :class="incomeColor(r.transactionPrincipal)">{{ r.transactionPrincipal !== 0 ? fmtSignedAmt(r.transactionPrincipal, r.currency) : '—' }}</td>
+                          <td class="table-cell text-right font-mono" :class="incomeColor(r.transactionBonus)">{{ r.transactionBonus !== 0 ? fmtSignedAmt(r.transactionBonus, r.currency) : '—' }}</td>
+                          <td class="table-cell text-right font-mono text-emerald-600">{{ r.adjAdd > 0 ? '+' + fmtAmt(r.adjAdd, r.currency) : '—' }}</td>
+                          <td class="table-cell text-right font-mono text-orange-600">{{ r.adjSub > 0 ? '-' + fmtAmt(r.adjSub, r.currency) : '—' }}</td>
                           <td class="table-cell text-right font-mono font-semibold">{{ fmtAmt(r.closing, r.currency) }}</td>
                         </tr>
                       </tbody>
@@ -402,23 +408,29 @@ function entityCurrency(bt) {
 // Builds the full pivoted ledger table for ONE shift — one row per entity
 // (Company Bank account / Product), using that shift's own persisted
 // opening detail (row.details, phase='open') plus whatever ledger entries
-// have been loaded for it (shiftLedgers[row.id]). Splits ledger activity
-// into "Dep/Wit" (customer-originated, via an actual client Deposit/
-// Withdrawal) and "Using in Shift" (company-originated, a direct admin
-// top-up/withdrawal) rather than blending them into one number — matching
-// Closing = Opening + Dep/Wit + Using in Shift.
-// Builds the full pivoted ledger table for ONE shift — one row per entity
-// (Company Bank account / Product), using that shift's own persisted
-// opening detail (row.details, phase='open') plus whatever ledger entries
 // have been loaded for it (shiftLedgers[row.id]).
 //
 // Dep and Wit are each scoped to source='configuration' only (direct admin
 // Top Up / Withdraw on the entity) and kept as two SEPARATE totals rather
 // than netted into one figure — Dep is the sum of configuration top-ups,
-// Wit is the sum of configuration withdrawals. "Using in Shift" is
-// everything else (source='transaction', a client Deposit/Withdrawal side
-// effect, or source='adjustment', a manual correction), netted together.
-// Closing = Opening + Dep - Wit + Using in Shift.
+// Wit is the sum of configuration withdrawals. Transaction and Adjustment
+// are each their own separate netted total too (source='transaction' — a
+// client Deposit/Withdrawal side effect — and source='adjustment' — a
+// manual correction — respectively), rather than blended together as one
+// "Using in Shift" figure. Closing = Opening + Dep - Wit + Transaction +
+// Adjustment.
+// Dep and Wit are each scoped to source='configuration' only (direct admin
+// Top Up / Withdraw on the entity) and kept as two SEPARATE totals rather
+// than netted into one figure — Dep is the sum of configuration top-ups,
+// Wit is the sum of configuration withdrawals. Adjustment gets the same
+// treatment — AdjAdd/AdjSub kept separate rather than netted — since
+// seeing "added 50, subtracted 30" is more useful for an audit than just
+// "+20". Transaction (source='transaction', a client Deposit/Withdrawal
+// side effect) is split into its own principal vs bonus using each ledger
+// row's bonus_amount field, so it's visible how much of a deposit's credit
+// effect was the client's real money vs a promotional bonus. Closing =
+// Opening + Dep - Wit + TransactionPrincipal + TransactionBonus + AdjAdd -
+// AdjSub.
 function shiftLedgerRows(row) {
   const openingByKey = {}
   const labelByKey = {}
@@ -435,7 +447,10 @@ function shiftLedgerRows(row) {
 
   const depByKey = {}
   const witByKey = {}
-  const usingInShiftByKey = {}
+  const transactionPrincipalByKey = {}
+  const transactionBonusByKey = {}
+  const adjAddByKey = {}
+  const adjSubByKey = {}
   for (const bt of shiftLedgers.value[row.id] || []) {
     const key = `${bt.entity_type}-${bt.entity_id}`
     if (!(key in labelByKey)) {
@@ -447,9 +462,20 @@ function shiftLedgerRows(row) {
     if (bt.source === 'configuration') {
       if (bt.type === 'withdrawal') witByKey[key] = (witByKey[key] || 0) + amt
       else depByKey[key] = (depByKey[key] || 0) + amt
+    } else if (bt.source === 'adjustment') {
+      if (bt.type === 'withdrawal') adjSubByKey[key] = (adjSubByKey[key] || 0) + amt
+      else adjAddByKey[key] = (adjAddByKey[key] || 0) + amt
     } else {
-      const delta = bt.type === 'withdrawal' ? -amt : amt
-      usingInShiftByKey[key] = (usingInShiftByKey[key] || 0) + delta
+      // source === 'transaction' (a client Deposit/Withdrawal side effect)
+      // — also the fallback for any unrecognized/legacy source value.
+      // bonus_amount (0 for anything that isn't a Deposit's credit effect)
+      // is split out of amount into its own bucket — the remainder is the
+      // client's actual principal.
+      const bonus = Number(bt.bonus_amount || 0)
+      const principal = amt - bonus
+      const sign = bt.type === 'withdrawal' ? -1 : 1
+      transactionPrincipalByKey[key] = (transactionPrincipalByKey[key] || 0) + sign * principal
+      transactionBonusByKey[key] = (transactionBonusByKey[key] || 0) + sign * bonus
     }
   }
 
@@ -457,28 +483,34 @@ function shiftLedgerRows(row) {
     const opening = openingByKey[key] ?? 0
     const dep = depByKey[key] || 0
     const wit = witByKey[key] || 0
-    const usingInShift = usingInShiftByKey[key] || 0
+    const transactionPrincipal = transactionPrincipalByKey[key] || 0
+    const transactionBonus = transactionBonusByKey[key] || 0
+    const adjAdd = adjAddByKey[key] || 0
+    const adjSub = adjSubByKey[key] || 0
     return {
       key,
       type: typeByKey[key],
       label: labelByKey[key],
       currency: currencyByKey[key] || 'USD',
-      opening, dep, wit, usingInShift,
-      closing: opening + dep - wit + usingInShift,
+      opening, dep, wit, transactionPrincipal, transactionBonus, adjAdd, adjSub,
+      closing: opening + dep - wit + transactionPrincipal + transactionBonus + adjAdd - adjSub,
     }
   })
 }
 
 
 // Quick-glance breakdown for the "Top-Ups / Withdrawals" stat card —
-// mirrors shiftLedgerRows' three-way split (Dep/Wit scoped to
-// source='configuration', "Using" for everything else) but rolled up per
-// ENTITY TYPE (Company Bank vs Product Type) instead of per individual
-// entity, since this card is a summary, not the full ledger.
+// mirrors shiftLedgerRows' split (Dep/Wit scoped to source='configuration')
+// but rolled up per ENTITY TYPE (Company Bank vs Product Type) instead of
+// per individual entity, since this card is a summary, not the full
+// ledger. Transaction/Adjustment activity is tracked here too (for
+// potential future display) but not currently shown in the stat card
+// itself, which only surfaces Dep/Wit.
 function emptyLedgerBucket() {
   return {
     depCount: 0, witCount: 0, depUsd: 0, depKhr: 0, witUsd: 0, witKhr: 0,
-    usingCount: 0, usingUsd: 0, usingKhr: 0,
+    transactionCount: 0, transactionUsd: 0, transactionKhr: 0,
+    adjustmentCount: 0, adjustmentUsd: 0, adjustmentKhr: 0,
     netUsd: 0, netKhr: 0,
   }
 }
@@ -498,16 +530,21 @@ const shiftLedgerByEntity = computed(() => {
         if (cur === 'KHR') bucket.depKhr += amt
         else bucket.depUsd += amt
       }
-    } else {
-      bucket.usingCount++
+    } else if (bt.source === 'adjustment') {
+      bucket.adjustmentCount++
       const delta = bt.type === 'withdrawal' ? -amt : amt
-      if (cur === 'KHR') bucket.usingKhr += delta
-      else bucket.usingUsd += delta
+      if (cur === 'KHR') bucket.adjustmentKhr += delta
+      else bucket.adjustmentUsd += delta
+    } else {
+      bucket.transactionCount++
+      const delta = bt.type === 'withdrawal' ? -amt : amt
+      if (cur === 'KHR') bucket.transactionKhr += delta
+      else bucket.transactionUsd += delta
     }
   }
   for (const bucket of Object.values(result)) {
-    bucket.netUsd = bucket.depUsd - bucket.witUsd + bucket.usingUsd
-    bucket.netKhr = bucket.depKhr - bucket.witKhr + bucket.usingKhr
+    bucket.netUsd = bucket.depUsd - bucket.witUsd + bucket.transactionUsd + bucket.adjustmentUsd
+    bucket.netKhr = bucket.depKhr - bucket.witKhr + bucket.transactionKhr + bucket.adjustmentKhr
   }
   return result
 })

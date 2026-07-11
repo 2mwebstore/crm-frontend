@@ -98,10 +98,41 @@
       <!-- Admin create/edit modal -->
       <AppModal v-model="adminModal" :title="adminEditing ? 'Edit User' : 'New User'" size="md">
         <div class="space-y-3">
+          <!-- Branches multi-select -->
+          <div>
+            <label class="label">Branches <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(Super Admin assigns)</span></label>
+            <!-- Branch picker -->
+            <SearchableSelect
+              v-model="branchToAdd"
+              :options="unselectedBranches"
+              placeholder="Add a branch…"
+              :show-all="false"
+              @update:modelValue="addBranch"
+            />
+            <!-- Selected branch tags -->
+            <div v-if="adminForm.branch_ids.length" class="flex flex-wrap gap-2 mt-2">
+              <span v-for="id in adminForm.branch_ids" :key="id"
+                class="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 border border-primary-200 text-xs font-medium px-2.5 py-1 rounded-full">
+                <span class="font-mono">{{ branchLabel(id) }}</span>
+                <button type="button" @click="removeBranch(id)" class="text-primary-400 hover:text-primary-700 leading-none">×</button>
+              </span>
+            </div>
+            <p v-else class="text-xs text-gray-400 mt-1">No branches assigned.</p>
+          </div>
+
           <div><label class="label">Name <span class="text-red-500">*</span></label>
-            <input v-model="adminForm.name" class="input" required /></div>
+            <input v-model="adminForm.name" class="input" required @input="onAdminNameInput" /></div>
           <div v-if="!adminEditing"><label class="label">Email <span class="text-red-500">*</span></label>
-            <input v-model="adminForm.email" type="email" class="input" required /></div>
+            <input
+              v-model="adminForm.email"
+              type="text"
+              class="input"
+              required
+              :readonly="adminForm.branch_ids.length === 1"
+              :class="adminForm.branch_ids.length === 1 ? 'bg-gray-50 cursor-not-allowed' : ''"
+            />
+            <p v-if="adminForm.branch_ids.length === 1" class="text-xs text-gray-400 mt-1">Auto-generated from name + branch code — assign more than one branch to enter a custom email.</p>
+          </div>
           <div><label class="label">{{ adminEditing ? 'New Password (blank = keep)' : 'Password *' }}</label>
             <input v-model="adminForm.password" type="password" class="input" :required="!adminEditing" /></div>
           <div v-if="!adminEditing?.is_super_admin">
@@ -123,27 +154,6 @@
             />
           </div>
 
-          <!-- Branches multi-select -->
-          <div>
-            <label class="label">Branches <span class="text-gray-400 font-normal">(Super Admin assigns)</span></label>
-            <!-- Branch picker -->
-            <SearchableSelect
-              v-model="branchToAdd"
-              :options="unselectedBranches"
-              placeholder="Add a branch…"
-              :show-all="false"
-              @update:modelValue="addBranch"
-            />
-            <!-- Selected branch tags -->
-            <div v-if="adminForm.branch_ids.length" class="flex flex-wrap gap-2 mt-2">
-              <span v-for="id in adminForm.branch_ids" :key="id"
-                class="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 border border-primary-200 text-xs font-medium px-2.5 py-1 rounded-full">
-                <span class="font-mono">{{ branchLabel(id) }}</span>
-                <button type="button" @click="removeBranch(id)" class="text-primary-400 hover:text-primary-700 leading-none">×</button>
-              </span>
-            </div>
-            <p v-else class="text-xs text-gray-400 mt-1">No branches assigned.</p>
-          </div>
 
           <div v-if="adminEditing" class="flex items-center gap-2 text-sm">
             <input type="checkbox" v-model="adminForm.is_active" class="accent-primary" />
@@ -152,7 +162,24 @@
         </div>
         <template #footer>
           <button @click="adminModal = false" class="btn-secondary">Cancel</button>
-          <button @click="handleAdminSave" class="btn-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save' }}</button>
+          <RequiredFieldsGuard
+            :fields="{
+              Branch: adminForm.branch_ids.length ? true : 0,
+              Name: adminForm.name,
+              Email: adminEditing ? true : adminForm.email,
+              Password: adminEditing ? true : adminForm.password,
+            }"
+            v-slot="{ isValid, missing }"
+          >
+            <button
+              @click="handleAdminSave"
+              class="btn-primary"
+              :disabled="saving || !isValid"
+              :title="!isValid ? `Missing: ${missing.join(', ')}` : ''"
+            >
+              {{ saving ? 'Saving...' : 'Save' }}
+            </button>
+          </RequiredFieldsGuard>
         </template>
       </AppModal>
 
@@ -224,17 +251,6 @@
 
       <AppModal v-model="modal" :title="editing ? 'Edit Sub User' : 'New Sub User'" size="md">
         <div class="space-y-3">
-          <div><label class="label">Name <span class="text-red-500">*</span></label>
-            <input v-model="form.name" class="input" required /></div>
-          <div v-if="!editing"><label class="label">Email <span class="text-red-500">*</span></label>
-            <input v-model="form.email" type="email" class="input" required /></div>
-          <div><label class="label">{{ editing ? 'New Password (blank = keep)' : 'Password *' }}</label>
-            <input v-model="form.password" type="password" class="input" :required="!editing" /></div>
-          <div>
-            <label class="label">Role <span class="text-red-500">*</span></label>
-            <SearchableSelect v-model="form.role_id" :options="roles" placeholder="Select a role" />
-          </div>
-
           <!-- Branches multi-select — same pattern as the Super Admin's Edit User modal -->
           <div>
             <label class="label">Branches <span class="text-red-500">*</span></label>
@@ -255,6 +271,26 @@
             <p v-else class="text-xs text-gray-400 mt-1">No branches assigned.</p>
           </div>
 
+          <div><label class="label">Name <span class="text-red-500">*</span></label>
+            <input v-model="form.name" class="input" required @input="onSubUserNameInput" /></div>
+          <div v-if="!editing"><label class="label">Email <span class="text-red-500">*</span></label>
+            <input
+              v-model="form.email"
+              type="text"
+              class="input"
+              required
+              :readonly="form.branch_ids.length === 1"
+              :class="form.branch_ids.length === 1 ? 'bg-gray-50 cursor-not-allowed' : ''"
+            />
+            <p v-if="form.branch_ids.length === 1" class="text-xs text-gray-400 mt-1">Auto-generated from name + branch code — assign more than one branch to enter a custom email.</p>
+          </div>
+          <div><label class="label">{{ editing ? 'New Password (blank = keep)' : 'Password *' }}</label>
+            <input v-model="form.password" type="password" class="input" :required="!editing" /></div>
+          <div>
+            <label class="label">Role <span class="text-red-500">*</span></label>
+            <SearchableSelect v-model="form.role_id" :options="roles" placeholder="Select a role" />
+          </div>
+
           <div v-if="editing" class="flex items-center gap-2 text-sm">
             <input type="checkbox" v-model="form.is_active" class="accent-primary" />
             <span>Active</span>
@@ -264,11 +300,11 @@
           <button @click="modal = false" class="btn-secondary">Cancel</button>
           <RequiredFieldsGuard
             :fields="{
+              Branch: form.branch_ids.length ? true : 0,
               Name: form.name,
               Email: editing ? true : form.email,
               Password: editing ? true : form.password,
               Role: form.role_id,
-              Branch: form.branch_ids.length ? true : 0,
             }"
             v-slot="{ isValid, missing }"
           >
@@ -344,16 +380,47 @@ function branchLabel(id) {
   return allBranches.value.find(b => b.id === id)?.name || id
 }
 
+function branchCode(id) {
+  return allBranches.value.find(b => b.id === id)?.sub || ''
+}
+
+// Auto-fills Email as "name@branchcode" once exactly one branch is
+// assigned and a name has been entered. Only meaningful while creating —
+// Email is hidden entirely while editing, so isEditingRef being truthy
+// just skips this outright. Re-run on every name keystroke and every
+// branch add/remove, so whichever happened most recently always wins;
+// this only ever overwrites Email automatically, never blocks someone
+// from then typing their own value over it.
+function autoFillEmail(formRef, isEditingRef) {
+  if (isEditingRef.value) return
+  if (formRef.value.branch_ids.length !== 1) return
+  const code = branchCode(formRef.value.branch_ids[0])
+  if (!code || !formRef.value.name) return
+  formRef.value.email = `${formRef.value.name}@${code}`
+}
+
+function onAdminNameInput() {
+  adminForm.value.name = adminForm.value.name.replace(/\s/g, '')
+  autoFillEmail(adminForm, adminEditing)
+}
+
+function onSubUserNameInput() {
+  form.value.name = form.value.name.replace(/\s/g, '')
+  autoFillEmail(form, editing)
+}
+
 function addBranch(id) {
   if (!id) return
   if (!adminForm.value.branch_ids.includes(id)) {
     adminForm.value.branch_ids = [...adminForm.value.branch_ids, id]
   }
   branchToAdd.value = null
+  autoFillEmail(adminForm, adminEditing)
 }
 
 function removeBranch(id) {
   adminForm.value.branch_ids = adminForm.value.branch_ids.filter(i => i !== id)
+  autoFillEmail(adminForm, adminEditing)
 }
 
 // Branch multi-select state (Sub User modal) — same pattern as the Admin
@@ -371,10 +438,12 @@ function addSubBranch(id) {
     form.value.branch_ids = [...form.value.branch_ids, id]
   }
   subBranchToAdd.value = null
+  autoFillEmail(form, editing)
 }
 
 function removeSubBranch(id) {
   form.value.branch_ids = form.value.branch_ids.filter(i => i !== id)
+  autoFillEmail(form, editing)
 }
 
 // Options for the "Parent" picker in the admin modal — every non-super-admin
