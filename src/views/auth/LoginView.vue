@@ -15,7 +15,7 @@
         <form @submit.prevent="handleLogin" class="space-y-4">
           <div>
             <label class="label">Email address</label>
-            <input v-model="form.email" type="email" class="input" placeholder="admin@crm.local" required />
+            <input v-model="form.email" type="email" class="input" placeholder="admin@crm" required />
           </div>
           <div>
             <label class="label">Password</label>
@@ -39,7 +39,6 @@
           </button>
         </form>
       </div>
-      <p class="text-center text-xs text-gray-400 mt-4">Default: admin@crm.local / Admin@1234</p>
     </div>
   </div>
 </template>
@@ -55,7 +54,7 @@ const auth = useAuthStore()
 const lookup = useLookupStore()
 const router = useRouter()
 
-const form = ref({ email: 'admin@crm.local', password: 'Admin@1234' })
+const form = ref({ email: '', password: '' })
 const loading = ref(false)
 const error = ref('')
 const showPw = ref(false)

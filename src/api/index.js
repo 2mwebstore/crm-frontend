@@ -16,7 +16,13 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
   res => res.data,
   err => {
-    if (err.response?.status === 401) {
+    // A 401 from the login endpoint itself just means "wrong credentials"
+    // — that should surface as an inline error on the login form, not
+    // trigger a full page reload. Only an authenticated request getting
+    // rejected (an actual expired/invalid session) should force a
+    // logout-redirect.
+    const isLoginRequest = err.config?.url?.includes('/auth/login')
+    if (err.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('crm_token')
       window.location.href = '/login'
     }

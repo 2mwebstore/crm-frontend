@@ -41,6 +41,9 @@
             <button class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
               <UserIcon class="w-4 h-4" /> Profile
             </button>
+            <button @click="openChangePassword" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+              <LockClosedIcon class="w-4 h-4" /> Change Password
+            </button>
             <button @click="doLogout" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
               <ArrowRightOnRectangleIcon class="w-4 h-4" /> Sign out
             </button>
@@ -48,6 +51,53 @@
         </Transition>
       </div>
     </div>
+
+    <!-- Change Password modal -->
+    <AppModal v-model="passwordModal" title="Change Password" size="sm">
+      <div class="space-y-3">
+        <div>
+          <label class="label">Current Password <span class="text-red-500">*</span></label>
+          <div class="relative">
+            <input v-model="passwordForm.old_password" :type="showOldPassword ? 'text' : 'password'" class="input pr-9" autocomplete="current-password" />
+            <button type="button" @click="showOldPassword = !showOldPassword" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <EyeSlashIcon v-if="showOldPassword" class="w-4 h-4" />
+              <EyeIcon v-else class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="label">New Password <span class="text-red-500">*</span></label>
+          <div class="relative">
+            <input v-model="passwordForm.new_password" :type="showNewPassword ? 'text' : 'password'" class="input pr-9" autocomplete="new-password" placeholder="At least 6 characters" />
+            <button type="button" @click="showNewPassword = !showNewPassword" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <EyeSlashIcon v-if="showNewPassword" class="w-4 h-4" />
+              <EyeIcon v-else class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="label">Confirm New Password <span class="text-red-500">*</span></label>
+          <div class="relative">
+            <input v-model="passwordForm.confirm_password" :type="showConfirmPassword ? 'text' : 'password'" class="input pr-9" autocomplete="new-password" />
+            <button type="button" @click="showConfirmPassword = !showConfirmPassword" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <EyeSlashIcon v-if="showConfirmPassword" class="w-4 h-4" />
+              <EyeIcon v-else class="w-4 h-4" />
+            </button>
+          </div>
+          <p v-if="passwordMismatch" class="text-xs text-red-500 mt-1">Passwords don't match</p>
+        </div>
+      </div>
+      <template #footer>
+        <button @click="passwordModal = false" class="btn-secondary" :disabled="changingPassword">Cancel</button>
+        <button
+          @click="submitChangePassword"
+          class="btn-primary"
+          :disabled="changingPassword || !canSubmitPasswordChange"
+        >
+          {{ changingPassword ? 'Saving...' : 'Change Password' }}
+        </button>
+      </template>
+    </AppModal>
   </header>
 </template>
 
@@ -56,13 +106,17 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { onClickOutside } from '@vueuse/core'
 import { useAuthStore } from '@/stores/auth'
-import { Bars3Icon, BellIcon, ChevronDownIcon, UserIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline'
+import { Bars3Icon, BellIcon, ChevronDownIcon, UserIcon, LockClosedIcon, ArrowRightOnRectangleIcon, EyeIcon, EyeSlashIcon } from '@heroicons/vue/24/outline'
+import AppModal from '@/components/common/AppModal.vue'
+import { changePassword } from '@/api/auth'
+import { useToast } from '@/composables/useToast'
 
 defineEmits(['toggle-sidebar'])
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const { success, error } = useToast()
 const menuOpen = ref(false)
 const menuRef = ref(null)
 
@@ -84,6 +138,49 @@ const branchName = computed(() => {
   const branches = (auth.user?.branches || []).filter(b => b?.name)
   return branches.length === 1 ? branches[0].name : ''
 })
+
+// Change Password modal
+const passwordModal = ref(false)
+const changingPassword = ref(false)
+const passwordForm = ref({ old_password: '', new_password: '', confirm_password: '' })
+const showOldPassword = ref(false)
+const showNewPassword = ref(false)
+const showConfirmPassword = ref(false)
+
+const passwordMismatch = computed(() =>
+  passwordForm.value.confirm_password !== '' && passwordForm.value.new_password !== passwordForm.value.confirm_password
+)
+const canSubmitPasswordChange = computed(() =>
+  passwordForm.value.old_password !== '' &&
+  passwordForm.value.new_password.length >= 6 &&
+  passwordForm.value.new_password === passwordForm.value.confirm_password
+)
+
+function openChangePassword() {
+  passwordForm.value = { old_password: '', new_password: '', confirm_password: '' }
+  showOldPassword.value = false
+  showNewPassword.value = false
+  showConfirmPassword.value = false
+  menuOpen.value = false
+  passwordModal.value = true
+}
+
+async function submitChangePassword() {
+  if (!canSubmitPasswordChange.value) return
+  changingPassword.value = true
+  try {
+    await changePassword({
+      old_password: passwordForm.value.old_password,
+      new_password: passwordForm.value.new_password,
+    })
+    success('Password changed')
+    passwordModal.value = false
+  } catch (e) {
+    error(e?.error || 'Failed to change password')
+  } finally {
+    changingPassword.value = false
+  }
+}
 
 function doLogout() {
   auth.logout()
