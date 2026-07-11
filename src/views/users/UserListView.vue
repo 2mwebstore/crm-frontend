@@ -131,7 +131,7 @@
               :readonly="adminForm.branch_ids.length === 1"
               :class="adminForm.branch_ids.length === 1 ? 'bg-gray-50 cursor-not-allowed' : ''"
             />
-            <p v-if="adminForm.branch_ids.length === 1" class="text-xs text-gray-400 mt-1">Auto-generated from name + branch code — assign more than one branch to enter a custom email.</p>
+            <p v-if="adminForm.branch_ids.length === 1" class="text-xs text-gray-400 mt-1">Auto-generated from name + branch name — assign more than one branch to enter a custom email.</p>
           </div>
           <div><label class="label">{{ adminEditing ? 'New Password (blank = keep)' : 'Password *' }}</label>
             <input v-model="adminForm.password" type="password" class="input" :required="!adminEditing" /></div>
@@ -282,7 +282,7 @@
               :readonly="form.branch_ids.length === 1"
               :class="form.branch_ids.length === 1 ? 'bg-gray-50 cursor-not-allowed' : ''"
             />
-            <p v-if="form.branch_ids.length === 1" class="text-xs text-gray-400 mt-1">Auto-generated from name + branch code — assign more than one branch to enter a custom email.</p>
+            <p v-if="form.branch_ids.length === 1" class="text-xs text-gray-400 mt-1">Auto-generated from name + branch name — assign more than one branch to enter a custom email.</p>
           </div>
           <div><label class="label">{{ editing ? 'New Password (blank = keep)' : 'Password *' }}</label>
             <input v-model="form.password" type="password" class="input" :required="!editing" /></div>
@@ -380,11 +380,15 @@ function branchLabel(id) {
   return allBranches.value.find(b => b.id === id)?.name || id
 }
 
-function branchCode(id) {
-  return allBranches.value.find(b => b.id === id)?.sub || ''
+// Branch names can contain spaces (e.g. "Phnom Penh"), unlike branch
+// codes — stripped here the same way Name already is, so the
+// auto-generated email doesn't end up with a space in it.
+function branchNameForEmail(id) {
+  const name = allBranches.value.find(b => b.id === id)?.name || ''
+  return name.replace(/\s/g, '')
 }
 
-// Auto-fills Email as "name@branchcode" once exactly one branch is
+// Auto-fills Email as "name@branchname" once exactly one branch is
 // assigned and a name has been entered. Only meaningful while creating —
 // Email is hidden entirely while editing, so isEditingRef being truthy
 // just skips this outright. Re-run on every name keystroke and every
@@ -394,9 +398,9 @@ function branchCode(id) {
 function autoFillEmail(formRef, isEditingRef) {
   if (isEditingRef.value) return
   if (formRef.value.branch_ids.length !== 1) return
-  const code = branchCode(formRef.value.branch_ids[0])
-  if (!code || !formRef.value.name) return
-  formRef.value.email = `${formRef.value.name}@${code}`
+  const name = branchNameForEmail(formRef.value.branch_ids[0])
+  if (!name || !formRef.value.name) return
+  formRef.value.email = `${formRef.value.name}@${name}`
 }
 
 function onAdminNameInput() {
