@@ -24,10 +24,6 @@
         <SearchableSelect v-model="form.bank_type_id" :options="bankTypes" placeholder="Select bank" />
       </div>
       <div>
-        <label class="label">Branch</label>
-        <SearchableSelect v-model="form.branch_id" :options="branches" placeholder="Company-wide (all branches)" />
-      </div>
-      <div>
         <label class="label">Account Number <span class="text-red-500">*</span></label>
         <input v-model="form.account_number" class="input font-mono" required placeholder="e.g. 000123456" />
       </div>
@@ -61,7 +57,6 @@ import LookupCrudView from './LookupCrudView.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import { getCompanyBanks, createCompanyBank, updateCompanyBank, deleteCompanyBank, topupCompanyBankCash, withdrawCompanyBankCash, adjustCompanyBankCash } from '@/api/lookup'
 import { getBankTypes, getCurrencies } from '@/api/lookup'
-import { getBranches } from '@/api/branches'
 
 const columns = [
   { key: 'account_name',   label: 'Account Name' },
@@ -79,12 +74,10 @@ const defaultForm = {
 }
 
 const bankTypes     = ref([])
-const branches      = ref([])
 const currencyTypes = ref([])
 
 onMounted(async () => {
   try { const r = await getBankTypes({ show_all: false }); bankTypes.value = (r.data || []).map(b => ({ id: b.id, name: b.name })) } catch {}
-  try { const r = await getBranches({ show_all: false }); branches.value = (r.data || []).map(b => ({ id: b.id, name: b.name })) } catch {}
   try { const r = await getCurrencies({ show_all: false }); currencyTypes.value = (r.data || []).map(c => ({ id: c.id, name: c.name })) } catch {}
 })
 </script>

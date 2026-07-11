@@ -433,7 +433,12 @@ async function load() {
   try { const res = await props.fetchFn(); items.value = res.data || []; allItems.value = res.data || [] } catch { } finally { loading.value = false }
 }
 
-function openCreate() { form.value = { ...props.defaultForm, branch_id: null }; editing.value = null; modal.value = true }
+function openCreate() {
+  const defaultBranchId = branches.value.length === 1 ? branches.value[0].id : null
+  form.value = { ...props.defaultForm, branch_id: defaultBranchId }
+  editing.value = null
+  modal.value = true
+}
 function openEdit(row) { form.value = { ...row, branch_id: row.branch_id || null }; editing.value = row; modal.value = true }
 function confirmDelete(row) { deleteTarget.value = row; deleteDialog.value = true }
 
