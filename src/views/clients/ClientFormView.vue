@@ -140,7 +140,7 @@
               </span>
               <input
                 v-model="pr.account_suffix"
-                class="input rounded-l-none font-mono text-sm flex-1"
+                :class="['input rounded-l-none font-mono text-sm flex-1', isDuplicateRow(pr) ? 'border-red-400 focus:border-red-500' : '']"
                 :placeholder="productPrefix(pr) ? '001' : 'Select product first'"
                 :disabled="!productPrefix(pr)"
                 maxlength="3"
@@ -148,6 +148,7 @@
                 @input="pr.account_suffix = pr.account_suffix.replace(/[^0-9]/g,'').slice(0,3); pr.account_id = productPrefix(pr) + pr.account_suffix"
               />
             </div>
+            <p v-if="isDuplicateRow(pr)" class="text-xs text-red-500 mt-0.5">Duplicate account ID: {{ pr.account_id }}</p>
           </div>
           <div class="col-span-2 flex items-center gap-1.5 text-xs text-gray-600">
             <input type="checkbox" v-model="pr.is_active" class="accent-primary" /> Enable
@@ -163,7 +164,7 @@
         <button
           type="submit"
           class="btn-primary"
-          :disabled="saving || (!isEdit && !selectedBranchId) || !form.phones.length || !form.products.length"
+          :disabled="saving || (!isEdit && !selectedBranchId) || !form.phones.length || !form.products.length || duplicateAccountIds.size"
         >
           {{ saving ? 'Saving...' : (isEdit ? 'Update Client' : 'Create Client') }}
         </button>
@@ -220,6 +221,27 @@ function onProductTypeChange(pr) {
   // Product changed → prefix source changed, rebuild this row's account_id
   // from its existing suffix against the new product's code.
   pr.account_id = productPrefix(pr) + (pr.account_suffix || '')
+}
+
+// account_id has a DB-level uniqueIndex (a client's product account ID must
+// be unique across the whole system) — this catches the common local case
+// (two rows in THIS form ending up with the same account_id) before submit,
+// so the person sees it immediately instead of waiting on a round trip to
+// the backend. Cross-client duplicates (same account_id already used by a
+// different client entirely) can only be caught server-side, which still
+// surfaces its own clear error via the catch block in handleSubmit below.
+const duplicateAccountIds = computed(() => {
+  const seen = new Set()
+  const dupes = new Set()
+  for (const pr of form.value.products) {
+    if (!pr.account_id) continue
+    if (seen.has(pr.account_id)) dupes.add(pr.account_id)
+    seen.add(pr.account_id)
+  }
+  return dupes
+})
+function isDuplicateRow(pr) {
+  return !!pr.account_id && duplicateAccountIds.value.has(pr.account_id)
 }
 
 async function onBranchChange(id) {
@@ -292,6 +314,10 @@ async function handleSubmit() {
   if (!isEdit.value && !selectedBranchId.value) { error('Select a branch'); return }
   if (!form.value.phones.length)   { error('At least one phone is required'); return }
   if (!form.value.products.length) { error('At least one product is required'); return }
+  if (duplicateAccountIds.value.size) {
+    error('Duplicate account ID: ' + [...duplicateAccountIds.value].join(', '))
+    return
+  }
   saving.value = true
   try {
     const payload = { ...form.value, branch_id: selectedBranchId.value || form.value.branch_id }
