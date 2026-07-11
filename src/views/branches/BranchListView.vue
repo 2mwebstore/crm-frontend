@@ -91,6 +91,31 @@
           <label class="label">Description</label>
           <textarea v-model="form.description" class="input resize-none" rows="2" placeholder="Optional description…" />
         </div>
+        <div class="pt-2 border-t border-gray-100">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Telegram Notifications</p>
+          <p class="text-xs text-gray-400 mb-3">When set, every Deposit/Withdrawal against this branch posts a message here. Leave blank to disable.</p>
+          <div class="space-y-3">
+            <div>
+              <label class="label">Bot Token</label>
+              <input v-model="form.telegram_bot_token" class="input font-mono" placeholder="123456789:AA…" autocomplete="off" />
+            </div>
+            <div>
+              <label class="label">Target Group (Chat ID)</label>
+              <input v-model="form.telegram_chat_id" class="input font-mono" placeholder="-1001234567890" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label">Deposit Topic ID <span class="text-gray-400 font-normal">(optional)</span></label>
+                <input v-model.number="form.telegram_deposit_topic_id" type="number" class="input font-mono" placeholder="e.g. 5" />
+              </div>
+              <div>
+                <label class="label">Withdrawal Topic ID <span class="text-gray-400 font-normal">(optional)</span></label>
+                <input v-model.number="form.telegram_withdrawal_topic_id" type="number" class="input font-mono" placeholder="e.g. 6" />
+              </div>
+            </div>
+            <p class="text-xs text-gray-400">Same group for both — leave a Topic ID blank to post that type to the group's General topic instead of a specific thread.</p>
+          </div>
+        </div>
         <div v-if="editing" class="flex items-center gap-2 text-sm">
           <input type="checkbox" v-model="form.is_active" class="accent-primary w-4 h-4" />
           <span>Active</span>
@@ -137,7 +162,11 @@ const editing = ref(null)
 const deleteTarget = ref(null)
 const deleteDialog = ref(false)
 
-const defaultForm = () => ({ name: '', code: '', description: '', is_active: true })
+const defaultForm = () => ({
+  name: '', code: '', description: '', is_active: true,
+  telegram_bot_token: '', telegram_chat_id: '',
+  telegram_deposit_topic_id: null, telegram_withdrawal_topic_id: null,
+})
 const form = ref(defaultForm())
 
 async function load() {
@@ -166,7 +195,13 @@ function resetFilters() { search.value = ''; statusFilter.value = null; page.val
 function openCreate() { editing.value = null; form.value = defaultForm(); modal.value = true }
 function openEdit(row) {
   editing.value = row
-  form.value = { name: row.name, code: row.code, description: row.description || '', is_active: row.is_active }
+  form.value = {
+    name: row.name, code: row.code, description: row.description || '', is_active: row.is_active,
+    telegram_bot_token: row.telegram_bot_token || '',
+    telegram_chat_id: row.telegram_chat_id || '',
+    telegram_deposit_topic_id: row.telegram_deposit_topic_id ?? null,
+    telegram_withdrawal_topic_id: row.telegram_withdrawal_topic_id ?? null,
+  }
   modal.value = true
 }
 
@@ -175,10 +210,22 @@ async function handleSave() {
   form.value.code = form.value.code.toUpperCase().replace(/[^A-Z0-9]/g, '')
   saving.value = true
   try {
+    // Most branches don't use Telegram forum topics — an empty Topic ID
+    // input stays as '' (v-model.number doesn't coerce a blank field),
+    // and Go's *int can't unmarshal an empty string at all, so this must
+    // become an actual null rather than being sent as-is.
+    const payload = { ...form.value }
+    for (const key of ['telegram_deposit_topic_id', 'telegram_withdrawal_topic_id']) {
+      payload[key] = payload[key] === '' || payload[key] === null || payload[key] === undefined
+        ? null
+        : Number(payload[key])
+      if (Number.isNaN(payload[key])) payload[key] = null
+    }
+
     if (editing.value) {
-      await updateBranch(editing.value.id, form.value); success('Branch updated')
+      await updateBranch(editing.value.id, payload); success('Branch updated')
     } else {
-      await createBranch(form.value); success('Branch created')
+      await createBranch(payload); success('Branch created')
     }
     modal.value = false; load()
   } catch (e) { error(e?.error || 'Save failed') } finally { saving.value = false }
