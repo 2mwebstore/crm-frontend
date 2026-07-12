@@ -37,6 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = res.data.token
     user.value  = res.data.user
     localStorage.setItem('crm_token', res.data.token)
+    await fetchMe()  
   }
 
   async function fetchMe() {
