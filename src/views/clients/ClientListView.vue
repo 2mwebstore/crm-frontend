@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-5">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold text-gray-800">Clients</h1>
         <p class="text-sm text-gray-500 mt-0.5">Manage your client records</p>
@@ -42,8 +42,8 @@
       </div>
     </div>
 
-    <!-- Table -->
-    <div class="card overflow-hidden">
+    <!-- Table (desktop) -->
+    <div class="hidden sm:block card overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead class="bg-gray-50 border-b border-gray-100">
@@ -118,9 +118,9 @@
               </td>
               <td class="table-cell">
                 <div class="flex items-center justify-end gap-1">
-                  <RouterLink :to="`/clients/${row.id}`" class="btn-icon" title="View"><EyeIcon class="w-4 h-4" /></RouterLink>
-                  <RouterLink :to="`/clients/${row.id}/edit`" class="btn-icon" title="Edit"><PencilIcon class="w-4 h-4" /></RouterLink>
-                  <button @click="confirmDelete(row)" class="btn-icon text-red-500" title="Delete"><TrashIcon class="w-4 h-4" /></button>
+                  <RouterLink :to="`/clients/${row.id}`" class="btn-icon bg-gray-100" title="View"><EyeIcon class="w-4 h-4" /></RouterLink>
+                  <RouterLink :to="`/clients/${row.id}/edit`" class="btn-icon bg-gray-100" title="Edit"><PencilIcon class="w-4 h-4" /></RouterLink>
+                  <button @click="confirmDelete(row)" class="btn-icon bg-red-50 text-red-500" title="Delete"><TrashIcon class="w-4 h-4" /></button>
                 </div>
               </td>
             </tr>
@@ -131,6 +131,51 @@
       <div v-if="meta && meta.total_items > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm text-gray-500">
         <PageSizeSelect v-model="pageSize" @update:modelValue="onPageSizeChange" />
         <span>Showing {{ (currentPage - 1) * currentPageSize + 1 }}–{{ Math.min(currentPage * currentPageSize, meta.total_items) }} of {{ meta.total_items }}</span>
+        <div class="flex items-center gap-1">
+          <button :disabled="currentPage <= 1" @click="goPage(currentPage - 1)" class="btn-icon disabled:opacity-40"><ChevronLeftIcon class="w-4 h-4" /></button>
+          <span class="px-3 py-1 bg-gray-100 rounded text-xs">{{ currentPage }} / {{ meta.total_pages }}</span>
+          <button :disabled="currentPage >= meta.total_pages" @click="goPage(currentPage + 1)" class="btn-icon disabled:opacity-40"><ChevronRightIcon class="w-4 h-4" /></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card list (mobile). Edit/View go to the existing full pages rather
+         than a bottom sheet — Client records carry bank/product
+         relationships that make the full form meaningfully more complex
+         than Interesting Clients, so the full page is kept as-is here. -->
+    <div class="sm:hidden space-y-3">
+      <div v-if="loading" class="flex items-center justify-center gap-2 text-gray-400 py-10 text-sm">
+        <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        Loading…
+      </div>
+      <div v-else-if="!items.length" class="text-center py-10 text-gray-400 text-sm">No clients found</div>
+      <div v-for="row in items" :key="row.id" class="card p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 bg-green-50 text-green-600">
+            {{ row.name?.charAt(0)?.toUpperCase() }}{{ row.name?.charAt(1)?.toUpperCase() || '' }}
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-gray-800 truncate">{{ row.name }}</p>
+            <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-1 flex-wrap">
+              <span v-if="primaryPhone(row)">{{ maskPhone(primaryPhone(row)) }}</span>
+              <span v-if="firstAccountId(row)">· {{ firstAccountId(row) }}</span>
+              <span v-if="firstBank(row)">· {{ firstBank(row) }}</span>
+            </p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ fmtDateOnly(row.date_joined) }}</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-50">
+          <RouterLink :to="`/clients/${row.id}`" class="btn-icon bg-gray-100" title="View"><EyeIcon class="w-4 h-4" /></RouterLink>
+          <RouterLink :to="`/clients/${row.id}/edit`" class="btn-icon bg-gray-100" title="Edit"><PencilIcon class="w-4 h-4" /></RouterLink>
+          <button @click="confirmDelete(row)" class="btn-icon bg-red-50 text-red-500" title="Delete"><TrashIcon class="w-4 h-4" /></button>
+        </div>
+      </div>
+
+      <div v-if="meta && meta.total_items > 0" class="flex items-center justify-between pt-1 text-sm text-gray-500">
+        <span class="text-xs">{{ meta.total_items }} total</span>
         <div class="flex items-center gap-1">
           <button :disabled="currentPage <= 1" @click="goPage(currentPage - 1)" class="btn-icon disabled:opacity-40"><ChevronLeftIcon class="w-4 h-4" /></button>
           <span class="px-3 py-1 bg-gray-100 rounded text-xs">{{ currentPage }} / {{ meta.total_pages }}</span>
@@ -197,6 +242,13 @@ function firstBank(row) {
   return (row.banks.find(b => b.is_active && b.account_name) || row.banks[0])?.account_name || null
 }
 function fmtDate(d) { if (!d) return '—'; const dt = new Date(d); return dt.toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' }).replace(/\//g, '-') + ' ' + dt.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', hour12:true }) }
+function fmtDateOnly(d) { return d ? new Date(d).toISOString().slice(0, 10) : '—' }
+function maskPhone(phone) {
+  if (!phone) return null
+  const digits = String(phone).replace(/\D/g, '')
+  if (digits.length <= 4) return phone
+  return '****' + digits.slice(-4)
+}
 
 async function load() {
   loading.value = true

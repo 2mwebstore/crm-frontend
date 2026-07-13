@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-5">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold text-gray-800">Interesting Clients</h1>
         <p class="text-sm text-gray-500 mt-0.5">Manage hot prospects and leads</p>
@@ -40,8 +40,8 @@
 
     </div>
 
-    <!-- Table -->
-    <div class="card overflow-hidden">
+    <!-- Table (desktop) -->
+    <div class="hidden sm:block card overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead class="bg-gray-50 border-b border-gray-100">
@@ -117,13 +117,13 @@
               </td>
               <td class="table-cell">
                 <div class="flex items-center justify-end gap-1">
-                  <RouterLink :to="`/interesting-clients/${row.id}`" class="btn-icon" title="View"><EyeIcon class="w-4 h-4" /></RouterLink>
-                  <RouterLink :to="`/interesting-clients/${row.id}/edit`" class="btn-icon" title="Edit"><PencilIcon class="w-4 h-4" /></RouterLink>
-                  <button v-if="!row.is_converted" @click="openConvert(row)" class="btn-icon text-teal-600" title="Convert to client">
+                  <RouterLink :to="`/interesting-clients/${row.id}`" class="btn-icon bg-gray-100" title="View"><EyeIcon class="w-4 h-4" /></RouterLink>
+                  <RouterLink :to="`/interesting-clients/${row.id}/edit`" class="btn-icon bg-gray-100" title="Edit"><PencilIcon class="w-4 h-4" /></RouterLink>
+                  <button v-if="!row.is_converted" @click="openConvert(row)" class="btn-icon bg-teal-50 text-teal-600" title="Convert to client">
                     <ArrowRightCircleIcon class="w-4 h-4" />
                   </button>
                   <span v-else class="text-xs text-teal-600 px-1">Converted</span>
-                  <button @click="confirmDelete(row)" class="btn-icon text-red-500" title="Delete"><TrashIcon class="w-4 h-4" /></button>
+                  <button @click="confirmDelete(row)" class="btn-icon bg-red-50 text-red-500" title="Delete"><TrashIcon class="w-4 h-4" /></button>
                 </div>
               </td>
             </tr>
@@ -134,6 +134,61 @@
       <div v-if="meta && meta.total_items > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm text-gray-500">
         <PageSizeSelect v-model="pageSize" @update:modelValue="onPageSizeChange" />
         <span>Showing {{ (currentPage - 1) * currentPageSize + 1 }}–{{ Math.min(currentPage * currentPageSize, meta.total_items) }} of {{ meta.total_items }}</span>
+        <div class="flex items-center gap-1">
+          <button :disabled="currentPage <= 1" @click="goPage(currentPage - 1)" class="btn-icon disabled:opacity-40"><ChevronLeftIcon class="w-4 h-4" /></button>
+          <span class="px-3 py-1 bg-gray-100 rounded text-xs">{{ currentPage }} / {{ meta.total_pages }}</span>
+          <button :disabled="currentPage >= meta.total_pages" @click="goPage(currentPage + 1)" class="btn-icon disabled:opacity-40"><ChevronRightIcon class="w-4 h-4" /></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card list (mobile) — tap a row to open the detail sheet; edit/delete
+         icons stop propagation so they act directly without opening it. -->
+    <div class="sm:hidden space-y-3">
+      <div v-if="loading" class="flex items-center justify-center gap-2 text-gray-400 py-10 text-sm">
+        <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        Loading…
+      </div>
+      <div v-else-if="!items.length" class="text-center py-10 text-gray-400 text-sm">No records found</div>
+      <div
+        v-for="row in items"
+        :key="row.id"
+        class="card p-4"
+      >
+        <div @click="openDetail(row)" class="flex items-center gap-3 active:opacity-70 transition-opacity cursor-pointer">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 bg-green-50 text-green-600">
+            {{ row.full_name?.charAt(0)?.toUpperCase() }}{{ row.full_name?.charAt(1)?.toUpperCase() || '' }}
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-gray-800 truncate">{{ row.full_name }}</p>
+            <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-1 truncate">
+              <span v-if="primaryPhone(row)">{{ maskPhone(primaryPhone(row)) }}</span>
+              <span v-if="primaryPhone(row) && row.contact_source">·</span>
+              <span v-if="row.contact_source">{{ row.contact_source.name }}</span>
+            </p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-50">
+          <button
+            v-if="!row.is_converted"
+            @click="openConvert(row)"
+            class="btn-icon bg-teal-50 text-teal-600"
+            title="Convert to client"
+          >
+            <ArrowRightCircleIcon class="w-4 h-4" />
+          </button>
+          <span v-else class="badge bg-teal-100 text-teal-700 text-xs" title="Already converted">✓ Converted</span>
+          <button @click="openEditDirect(row)" class="btn-icon bg-gray-100" title="Edit"><PencilIcon class="w-4 h-4" /></button>
+          <button @click="confirmDelete(row)" class="btn-icon bg-red-50 text-red-500" title="Delete"><TrashIcon class="w-4 h-4" /></button>
+        </div>
+      </div>
+
+      <!-- Mobile pagination -->
+      <div v-if="meta && meta.total_items > 0" class="flex items-center justify-between pt-1 text-sm text-gray-500">
+        <span class="text-xs">{{ meta.total_items }} total</span>
         <div class="flex items-center gap-1">
           <button :disabled="currentPage <= 1" @click="goPage(currentPage - 1)" class="btn-icon disabled:opacity-40"><ChevronLeftIcon class="w-4 h-4" /></button>
           <span class="px-3 py-1 bg-gray-100 rounded text-xs">{{ currentPage }} / {{ meta.total_pages }}</span>
@@ -191,23 +246,192 @@
         </button>
       </template>
     </AppModal>
+
+    <!-- ============ Mobile: Detail bottom sheet ============ -->
+    <Teleport to="body">
+      <Transition name="sheet-fade">
+        <div v-if="detailRow" class="fixed inset-0 z-50 sm:hidden">
+          <div class="absolute inset-0 bg-black/40" @click="closeDetail" />
+          <Transition name="sheet-slide" appear>
+            <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] flex flex-col shadow-[0_-8px_30px_rgba(0,0,0,0.12)]">
+              <div class="flex items-center justify-center pt-2.5 pb-1 flex-shrink-0">
+                <div class="w-10 h-1.5 rounded-full bg-gray-200"></div>
+              </div>
+              <div class="px-5 pb-3 flex-shrink-0">
+                <h2 class="text-xl font-bold text-gray-900">{{ detailRow.full_name }}</h2>
+              </div>
+              <div class="overflow-y-auto px-5 pb-4 divide-y divide-gray-100">
+                <div class="py-3">
+                  <p class="font-semibold text-gray-900">{{ detailRow.full_name }}</p>
+                  <p class="text-sm text-gray-400 mt-0.5">{{ detailRow.code }}</p>
+                </div>
+                <div class="py-3 flex items-center justify-between">
+                  <span class="text-sm text-gray-400">Source</span>
+                  <span class="text-sm font-semibold text-gray-800">{{ detailRow.contact_source?.name || '—' }}</span>
+                </div>
+                <div class="py-3 flex items-center justify-between">
+                  <span class="text-sm text-gray-400">Joined</span>
+                  <span class="text-sm font-semibold text-gray-800">{{ fmtDateOnly(detailRow.date_joined) }}</span>
+                </div>
+                <div class="py-3 flex items-center justify-between">
+                  <span class="text-sm text-gray-400">Status</span>
+                  <span :class="['text-sm font-semibold flex items-center gap-1.5', detailRow.is_active ? 'text-green-600' : 'text-gray-400']">
+                    <span class="w-1.5 h-1.5 rounded-full" :class="detailRow.is_active ? 'bg-green-500' : 'bg-gray-300'"></span>
+                    {{ detailRow.is_active ? 'Active' : 'Inactive' }}
+                  </span>
+                </div>
+                <div class="py-3">
+                  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <PhoneIcon class="w-3.5 h-3.5" /> Phones
+                  </p>
+                  <div v-if="!detailRow.phones?.length" class="text-sm text-gray-400">No phones</div>
+                  <div v-for="ph in detailRow.phones" :key="ph.id" class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 mb-1.5">
+                    <span class="text-sm font-medium text-gray-800">{{ ph.phone }}</span>
+                    <div class="flex items-center gap-1.5">
+                      <span v-if="ph.is_primary" class="badge text-xs" style="background:#EEF2FF;color:#938af4">Primary</span>
+                      <span :class="['badge text-xs', ph.is_active !== false ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500']">{{ ph.is_active !== false ? 'On' : 'Off' }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="px-5 pb-5 pt-2 flex-shrink-0" style="padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px))">
+                <div class="grid grid-cols-3 gap-2">
+                  <button @click="openEditFromDetail" class="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold" style="background:#EEF2FF;color:#4F46E5">
+                    <PencilIcon class="w-4 h-4" /> Edit
+                  </button>
+                  <button
+                    v-if="!detailRow.is_converted"
+                    @click="convertFromDetail(detailRow)"
+                    class="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold bg-green-50 text-green-700"
+                  >
+                    <ArrowRightCircleIcon class="w-4 h-4" /> Convert
+                  </button>
+                  <span v-else class="flex items-center justify-center rounded-xl py-2.5 text-sm font-semibold bg-teal-50 text-teal-700">Converted</span>
+                  <button @click="deleteFromDetail(detailRow)" class="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold bg-red-50 text-red-600">
+                    <TrashIcon class="w-4 h-4" /> Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- ============ Mobile: Edit bottom sheet ============ -->
+    <!-- Reuses the same fields/logic as ICFormView.vue's edit mode (Full
+         Name, Contact Source, Date Joined, Active, Phones) so behavior
+         matches the full edit page exactly, minus Branch/Code (fixed once
+         created). "Level" is included since interesting_clients records do
+         carry a real level_id (see ICDetailView.vue's ic.level?.name) even
+         though the desktop ICFormView.vue doesn't currently expose it. -->
+    <Teleport to="body">
+      <Transition name="sheet-fade">
+        <div v-if="editSheetOpen" class="fixed inset-0 z-50 sm:hidden">
+          <div class="absolute inset-0 bg-black/40" @click="closeEditSheet" />
+          <Transition name="sheet-slide" appear>
+            <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[90vh] flex flex-col shadow-[0_-8px_30px_rgba(0,0,0,0.12)]">
+              <div class="flex items-center justify-center pt-2.5 pb-1 flex-shrink-0">
+                <div class="w-10 h-1.5 rounded-full bg-gray-200"></div>
+              </div>
+              <div class="px-5 pb-3 flex items-center justify-between flex-shrink-0">
+                <h2 class="text-xl font-bold text-gray-900">Edit Lead</h2>
+                <button class="btn-icon" @click="closeEditSheet"><XMarkIcon class="w-5 h-5" /></button>
+              </div>
+
+              <div class="overflow-y-auto px-5 pb-4 space-y-4">
+                <div>
+                  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <UserPlusIcon class="w-3.5 h-3.5" /> Lead Information
+                  </p>
+                  <label class="label">Full Name <span class="text-red-500">*</span></label>
+                  <input v-model="editForm.full_name" class="input" required placeholder="Full name" />
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="label">Source <span class="text-red-500">*</span></label>
+                    <SearchableSelect v-model="editForm.contact_source_id" :options="contactSources" placeholder="Select source" />
+                  </div>
+                  <div>
+                    <label class="label">Level</label>
+                    <SearchableSelect v-model="editForm.level_id" :options="levelOptions" placeholder="— None —" />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 items-end">
+                  <div>
+                    <label class="label">Date Joined</label>
+                    <DatePicker v-model="editForm.date_joined" placeholder="Select date…" />
+                  </div>
+                  <label class="flex items-center gap-2 pb-2.5">
+                    <input type="checkbox" v-model="editForm.is_active" class="w-4 h-4 accent-primary" />
+                    <span class="text-sm font-medium text-green-600">Active</span>
+                  </label>
+                </div>
+
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <PhoneIcon class="w-3.5 h-3.5" /> Phone Numbers <span class="text-red-500">*</span>
+                    </p>
+                    <button type="button" @click="addEditPhone" class="btn-icon"><PlusIcon class="w-4 h-4" /></button>
+                  </div>
+                  <div v-for="(ph, i) in editForm.phones" :key="i" class="bg-gray-50 rounded-xl p-3 mb-2">
+                    <div class="flex items-center gap-2">
+                      <PhoneIcon class="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <input v-model="ph.phone" class="input bg-white flex-1" placeholder="Phone number" required />
+                      <button type="button" @click="editForm.phones.splice(i, 1)" class="btn-icon text-gray-400 flex-shrink-0"><XMarkIcon class="w-4 h-4" /></button>
+                    </div>
+                    <div class="flex items-center gap-4 mt-2 pl-6">
+                      <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                        <input type="radio" :name="'primary-'+i" :checked="ph.is_primary" @change="setEditPrimary(i)" class="accent-primary" />
+                        <StarIcon class="w-3.5 h-3.5" :class="ph.is_primary ? 'text-blue-500' : 'text-gray-300'" /> Primary
+                      </label>
+                      <label class="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                        <input type="checkbox" v-model="ph.is_active" class="accent-primary" /> Enable
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="px-5 pt-2 flex-shrink-0" style="padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px))">
+                <button
+                  @click="saveEditSheet"
+                  :disabled="editSaving || !editForm.full_name || !editForm.phones.length"
+                  class="btn-primary w-full flex items-center justify-center gap-2 py-3 text-base disabled:opacity-50"
+                >
+                  <CheckIcon class="w-5 h-5" /> {{ editSaving ? 'Saving…' : 'Save' }}
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { PlusIcon, EyeIcon, PencilIcon, TrashIcon, ArrowRightCircleIcon, ChevronLeftIcon, ChevronRightIcon, FunnelIcon } from '@heroicons/vue/24/outline'
+import {
+  PlusIcon, EyeIcon, PencilIcon, TrashIcon, ArrowRightCircleIcon, ChevronLeftIcon, ChevronRightIcon, FunnelIcon,
+  PhoneIcon, UserPlusIcon, StarIcon, XMarkIcon, CheckIcon
+} from '@heroicons/vue/24/outline'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import AppModal from '@/components/common/AppModal.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
+import DatePicker from '@/components/ui/DatePicker.vue'
 import PageSizeSelect from '@/components/common/PageSizeSelect.vue'
-import { getICs, deleteIC, convertIC } from '@/api/interesting-clients'
+import { getICs, deleteIC, convertIC, updateIC } from '@/api/interesting-clients'
 import { getBranches } from '@/api/branches'
 import { previewClientCode } from '@/api/clients'
 import { getUsersInScope } from '@/api/users'
 import { useLookupStore } from '@/stores/lookup'
 import { useToast } from '@/composables/useToast'
+import { nowForDatePicker } from '@/utils/datetime'
 
 const router = useRouter()
 const { success, error } = useToast()
@@ -252,6 +476,84 @@ function primaryPhone(row) {
 }
 function fmtDate(d) { if (!d) return '—'; const dt = new Date(d); return dt.toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' }).replace(/\//g, '-') + ' ' + dt.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', hour12:true }) }
 
+// Mobile-only helpers ---------------------------------------------------
+function fmtDateOnly(d) { return d ? new Date(d).toISOString().slice(0, 10) : '—' }
+function maskPhone(phone) {
+  if (!phone) return null
+  const digits = String(phone).replace(/\D/g, '')
+  if (digits.length <= 4) return phone
+  return '****' + digits.slice(-4)
+}
+
+const levelOptions = computed(() => lookup.levels.map(l => ({ id: l.id, name: l.name })))
+
+// ---- Detail sheet ----
+const detailRow = ref(null)
+function openDetail(row)  { detailRow.value = row }
+function closeDetail()    { detailRow.value = null }
+
+// Closes the sheet first, then opens the shared Convert popup (same
+// AppModal component desktop uses) on the next tick — avoids both being
+// teleported to <body> in the same instant, which could race for
+// stacking order and made Convert look broken/behind on mobile.
+function convertFromDetail(row) {
+  closeDetail()
+  nextTick(() => openConvert(row))
+}
+
+// ---- Edit sheet ----
+// Mirrors ICFormView.vue's edit-mode fields exactly (see that file) minus
+// Branch/Code, which aren't editable once a record exists there either.
+const editSheetOpen = ref(false)
+const editSaving    = ref(false)
+const editTargetId  = ref(null)
+const editForm = ref({
+  full_name: '', contact_source_id: null, level_id: null,
+  date_joined: nowForDatePicker(), is_active: true, phones: []
+})
+
+function populateEditForm(row) {
+  editTargetId.value = row.id
+  editForm.value = {
+    full_name: row.full_name || '',
+    contact_source_id: row.contact_source_id || row.contact_source?.id || null,
+    level_id: row.level_id || row.level?.id || null,
+    date_joined: row.date_joined ? row.date_joined.slice(0, 10) : '',
+    is_active: row.is_active ?? true,
+    phones: (row.phones || []).map(p => ({ ...p })),
+  }
+}
+
+function openEditFromDetail() {
+  populateEditForm(detailRow.value)
+  closeDetail()
+  editSheetOpen.value = true
+}
+function openEditDirect(row) {
+  populateEditForm(row)
+  editSheetOpen.value = true
+}
+function closeEditSheet() { editSheetOpen.value = false }
+
+function addEditPhone() {
+  editForm.value.phones.push({ phone: '', label: 'primary', is_primary: editForm.value.phones.length === 0, is_active: true })
+}
+function setEditPrimary(i) {
+  editForm.value.phones.forEach((p, idx) => { p.is_primary = idx === i })
+}
+
+async function saveEditSheet() {
+  if (!editForm.value.full_name || !editForm.value.phones.length) return
+  editSaving.value = true
+  try {
+    await updateIC(editTargetId.value, { ...editForm.value })
+    success('Updated successfully')
+    editSheetOpen.value = false
+    load()
+  } catch (e) { error(e?.error || 'Save failed') }
+  finally { editSaving.value = false }
+}
+
 async function load() {
   loading.value = true
   try {
@@ -273,6 +575,10 @@ function goPage(p)          { page.value = p; load() }
 function onPageSizeChange() { page.value = 1; load() }
 function resetFilters()     { filters.value = { search: '', is_active: null, is_converted: null, branch_id: null, created_by_id: null, contact_source_id: null}; page.value = 1; load() }
 function confirmDelete(row) { deleteTarget.value = row; deleteDialog.value = true }
+function deleteFromDetail(row) {
+  closeDetail()
+  nextTick(() => confirmDelete(row))
+}
 
 async function doDelete() {
   try { await deleteIC(deleteTarget.value.id); success('Deleted successfully'); load() }
@@ -320,3 +626,10 @@ onMounted(async () => {
   try { const r = await getUsersInScope(); users.value = (r.data||[]).map(u=>({id:u.id,name:u.name,sub:u.email})) } catch {}
 })
 </script>
+
+<style scoped>
+.sheet-fade-enter-active, .sheet-fade-leave-active { transition: opacity .2s ease; }
+.sheet-fade-enter-from, .sheet-fade-leave-to { opacity: 0; }
+.sheet-slide-enter-active, .sheet-slide-leave-active { transition: transform .25s cubic-bezier(.32,.72,0,1); }
+.sheet-slide-enter-from, .sheet-slide-leave-to { transform: translateY(100%); }
+</style>

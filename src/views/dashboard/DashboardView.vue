@@ -1,210 +1,234 @@
 <template>
-  <div class="space-y-6">
-    <!-- Header -->
+  <div class="space-y-6 pb-8">
+    <!-- ============ Greeting banner ============ -->
+    <div class="rounded-xl p-6 text-white" style="background:#938af4">
+      <p class="text-xl sm:text-2xl font-bold truncate">{{ greeting }}, {{ auth.user?.name || 'there' }}</p>
+      <p class="text-sm text-white/80 mt-1">{{ todayLabel }}<span v-if="branchName"> — {{ branchName }}</span></p>
+      <div class="flex flex-wrap gap-2 mt-4">
+        <span class="px-3 py-1.5 rounded-full text-xs font-medium bg-white/15">{{ todayDepositCount }} deposits today</span>
+        <span class="px-3 py-1.5 rounded-full text-xs font-medium bg-white/15">{{ todayWithdrawalCount }} withdrawals today</span>
+        <span class="px-3 py-1.5 rounded-full text-xs font-medium bg-white/15">{{ todayNewClients }} new clients</span>
+      </div>
+    </div>
+
+    <!-- ============ Today ============ -->
     <div>
-      <h1 class="text-xl font-semibold text-gray-800">Dashboard</h1>
-      <p class="text-sm text-gray-500 mt-0.5">Welcome back, {{ auth.user?.name }}</p>
-    </div>
-
-    <!-- Stat cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div v-for="s in stats" :key="s.label" class="card p-5">
-        <div class="flex items-start justify-between">
-          <div>
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">{{ s.label }}</p>
-            <p class="text-2xl font-bold text-gray-800 mt-1">{{ s.value }}</p>
-            <p class="text-xs text-gray-400 mt-1">{{ s.sub }}</p>
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">Today</p>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl p-5 shadow-[0_4px_24px_rgba(0,0,0,0.05)]">
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-3 bg-green-50">
+            <ArrowDownTrayIcon class="w-5 h-5 text-green-600" />
           </div>
-          <div :class="['w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0', s.color]">
-            <component :is="s.icon" class="w-5 h-5 text-white" />
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Deposit</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1 truncate">{{ fmtUSD(todayDepositUSD) }}</p>
+          <p class="text-sm font-semibold mt-0.5 truncate" style="color:#8B4513">{{ fmtKHR(todayDepositKHR) }}</p>
+          <p class="text-xs text-gray-400 mt-1.5">{{ todayDepositCount }} transaction{{ todayDepositCount === 1 ? '' : 's' }}</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 shadow-[0_4px_24px_rgba(0,0,0,0.05)]">
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-3 bg-orange-50">
+            <ArrowUpTrayIcon class="w-5 h-5 text-orange-600" />
           </div>
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Withdrawal</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1 truncate">{{ fmtUSD(todayWithdrawalUSD) }}</p>
+          <p class="text-sm font-semibold mt-0.5 truncate" style="color:#8B4513">{{ fmtKHR(todayWithdrawalKHR) }}</p>
+          <p class="text-xs text-gray-400 mt-1.5">{{ todayWithdrawalCount }} transaction{{ todayWithdrawalCount === 1 ? '' : 's' }}</p>
         </div>
       </div>
     </div>
 
-    <!-- Two columns: recent clients + recent ICs -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Recent clients -->
-      <div class="card">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-700">Recent Clients</h2>
-          <RouterLink to="/clients" class="text-xs font-medium" style="color:#938af4">View all →</RouterLink>
-        </div>
-        <div class="divide-y divide-gray-50">
-          <div v-if="loadingClients" class="flex items-center justify-center py-8 text-gray-400 text-sm">Loading…</div>
-          <div v-else-if="!recentClients.length" class="flex items-center justify-center py-8 text-gray-400 text-sm">No clients yet</div>
-          <RouterLink
-            v-for="c in recentClients"
-            :key="c.id"
-            :to="`/clients/${c.id}`"
-            class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60 transition-colors"
-          >
-            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0" style="background:#938af4">
-              {{ c.name?.charAt(0)?.toUpperCase() }}
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-800 truncate">{{ c.name }}</p>
-              <p class="text-xs text-gray-400">{{ c.code }} · {{ c.status }}</p>
-            </div>
-            <span :class="['badge text-xs', c.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500']">
-              {{ c.is_active ? 'Active' : 'Inactive' }}
-            </span>
-          </RouterLink>
-        </div>
+    <!-- ============ Net — Today ============ -->
+    <div class="rounded-xl p-5 text-white flex items-center justify-between gap-4" style="background:#6D5FD8">
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wider text-white/70">Net — Today</p>
+        <p class="text-2xl font-bold mt-1">{{ netUSD >= 0 ? '+' : '' }}{{ fmtUSD(netUSD) }}</p>
       </div>
+      <div class="text-right min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wider text-white/70">Net KHR</p>
+        <p class="text-2xl font-bold mt-1">{{ netKHR >= 0 ? '+' : '' }}{{ fmtKHR(netKHR) }}</p>
+      </div>
+    </div>
 
-      <!-- Recent interesting clients -->
-      <div class="card">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-700">Recent Interesting Clients</h2>
-          <RouterLink to="/interesting-clients" class="text-xs font-medium" style="color:#938af4">View all →</RouterLink>
-        </div>
-        <div class="divide-y divide-gray-50">
-          <div v-if="loadingICs" class="flex items-center justify-center py-8 text-gray-400 text-sm">Loading…</div>
-          <div v-else-if="!recentICs.length" class="flex items-center justify-center py-8 text-gray-400 text-sm">No records yet</div>
-          <RouterLink
-            v-for="ic in recentICs"
-            :key="ic.id"
-            :to="`/interesting-clients/${ic.id}`"
-            class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60 transition-colors"
-          >
-            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 bg-amber-400">
-              {{ ic.full_name?.charAt(0)?.toUpperCase() }}
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-800 truncate">{{ ic.full_name }}</p>
-              <p class="text-xs text-gray-400">{{ ic.code }} · Score: {{ ic.interest_score }}</p>
-            </div>
-            <span :class="['badge text-xs', priorityColor(ic.priority)]">{{ ic.priority }}</span>
-          </RouterLink>
+    <!-- ============ All Time ============ -->
+    <div>
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">All Time</p>
+      <div class="flex overflow-x-auto snap-x snap-mandatory gap-1 -mx-4 sm:mx-0">
+        <div
+          v-for="(s, idx) in allTimeStats"
+          :key="s.label"
+          :class="[
+            'w-[40%] flex-shrink-0 snap-start bg-white rounded-xl p-5 shadow-[0_4px_24px_rgba(0,0,0,0.05)]',
+            idx === 0 ? 'ml-4' : '',
+            idx === allTimeStats.length - 1 ? 'mr-4' : ''
+          ]"
+        >
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-3" :style="{ background: `${s.tint}1f` }">
+            <component :is="s.icon" class="w-5 h-5" :style="{ color: s.tint }" />
+          </div>
+          <p class="text-xs font-medium text-gray-400">{{ s.label }}</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1 truncate">{{ s.value }}</p>
+          <p class="text-xs mt-1.5 truncate" :class="s.subColor || 'text-gray-400'">{{ s.sub }}</p>
         </div>
       </div>
     </div>
 
-    <!-- Two columns: recent deposits + recent withdrawals -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Recent deposits -->
-      <div class="card">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-700">Recent Deposits</h2>
-          <RouterLink to="/deposits" class="text-xs font-medium" style="color:#938af4">View all →</RouterLink>
-        </div>
-        <div class="divide-y divide-gray-50">
-          <div v-if="loadingDeposits" class="flex items-center justify-center py-8 text-gray-400 text-sm">Loading…</div>
-          <div v-else-if="!recentDeposits.length" class="flex items-center justify-center py-8 text-gray-400 text-sm">No deposits yet</div>
-          <RouterLink
-            v-for="d in recentDeposits"
-            :key="d.id"
-            :to="`/deposits/${d.id}`"
-            class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60 transition-colors"
-          >
-            <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-green-100">
-              <ArrowDownTrayIcon class="w-4 h-4 text-green-600" />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-800 font-mono">{{ d.transaction_no }}</p>
-              <p class="text-xs text-gray-400 truncate">{{ d.client?.name }} · {{ fmtDate(d.date) }}</p>
-            </div>
-            <span class="text-sm font-semibold" style="color:#938af4">{{ fmtCurrency(d.amount, d.currency) }}</span>
-          </RouterLink>
-        </div>
-      </div>
-
-      <!-- Recent withdrawals -->
-      <div class="card">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-700">Recent Withdrawals</h2>
-          <RouterLink to="/withdrawals" class="text-xs font-medium" style="color:#938af4">View all →</RouterLink>
-        </div>
-        <div class="divide-y divide-gray-50">
-          <div v-if="loadingWithdrawals" class="flex items-center justify-center py-8 text-gray-400 text-sm">Loading…</div>
-          <div v-else-if="!recentWithdrawals.length" class="flex items-center justify-center py-8 text-gray-400 text-sm">No withdrawals yet</div>
-          <RouterLink
-            v-for="w in recentWithdrawals"
-            :key="w.id"
-            :to="`/withdrawals/${w.id}`"
-            class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/60 transition-colors"
-          >
-            <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-orange-100">
-              <ArrowUpTrayIcon class="w-4 h-4 text-orange-600" />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-800 font-mono">{{ w.transaction_no }}</p>
-              <p class="text-xs text-gray-400 truncate">{{ w.client?.name }} · {{ fmtDate(w.date) }}</p>
-            </div>
-            <span class="text-sm font-semibold text-orange-600">-{{ fmtCurrency(w.amount, w.currency) }}</span>
-          </RouterLink>
-        </div>
+    <!-- ============ Quick Actions ============ -->
+    <div>
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">Quick Actions</p>
+      <div class="grid grid-cols-3 gap-3">
+        <RouterLink
+          v-for="a in quickActions"
+          :key="a.label"
+          :to="a.to"
+          class="flex flex-col items-center justify-center gap-2 bg-white rounded-lg py-5 px-2 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_28px_rgba(147,138,244,0.22)] transition-all duration-300 hover:-translate-y-0.5 active:scale-95"
+        >
+          <div class="w-11 h-11 rounded-lg flex items-center justify-center" style="background:rgba(147,138,244,0.12)">
+            <component :is="a.icon" class="w-5 h-5" style="color:#938af4" />
+          </div>
+          <span class="text-xs font-semibold text-gray-700 text-center leading-tight">{{ a.label }}</span>
+        </RouterLink>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { getClients } from '@/api/clients'
 import { getICs } from '@/api/interesting-clients'
 import { getDeposits, getWithdrawals } from '@/api/transactions'
+import { sumByCurrency } from '@/utils/currency'
+import { nowForDatePicker } from '@/utils/datetime'
 import {
-  UserGroupIcon, StarIcon, ArrowDownTrayIcon, ArrowUpTrayIcon
+  ArrowDownTrayIcon, ArrowUpTrayIcon, UserGroupIcon, StarIcon,
+  ArrowPathIcon, CalendarDaysIcon, BanknotesIcon, ChartBarIcon
 } from '@heroicons/vue/24/outline'
 
 const auth = useAuthStore()
-const recentClients     = ref([])
-const recentICs         = ref([])
-const recentDeposits    = ref([])
-const recentWithdrawals = ref([])
-const loadingClients     = ref(true)
-const loadingICs         = ref(true)
-const loadingDeposits    = ref(true)
-const loadingWithdrawals = ref(true)
 
-const stats = ref([
-  { label: 'Total Clients',      value: '—', sub: 'All time',          icon: UserGroupIcon,    color: 'bg-primary' },
-  { label: 'Interesting Clients', value: '—', sub: 'Not converted',     icon: StarIcon,         color: 'bg-amber-400' },
-  { label: 'Total Deposits',     value: '—', sub: 'All time',          icon: ArrowDownTrayIcon, color: 'bg-green-500' },
-  { label: 'Total Withdrawals',  value: '—', sub: 'All time',          icon: ArrowUpTrayIcon,   color: 'bg-orange-500' },
+// Same permission-gated quick actions as before — each links to a real,
+// existing route.
+const quickActions = computed(() => {
+  const isSA = auth.isSuperAdmin
+  const all = [
+    { label: 'Clients',      to: '/clients',             icon: UserGroupIcon,  show: isSA || auth.can('clients.view') },
+    { label: 'Interesting',  to: '/interesting-clients',  icon: StarIcon,       show: isSA || auth.can('interesting_clients.view') },
+    { label: 'Deposits',     to: '/deposits',             icon: ArrowDownTrayIcon, show: isSA || auth.can('deposits.view') },
+    { label: 'Withdrawals',  to: '/withdrawals',          icon: ArrowUpTrayIcon,   show: isSA || auth.can('withdrawals.view') },
+    { label: 'Turn Over',    to: '/turnover-bets',        icon: ArrowPathIcon,     show: isSA || auth.can('turnover_bets.view') },
+    { label: 'Follow Ups',   to: '/follow-ups',           icon: CalendarDaysIcon,  show: isSA || auth.can('follow_ups.view') },
+    { label: 'Daily Balance', to: '/daily-balance',       icon: BanknotesIcon,     show: isSA || auth.canAny('daily_balance.view', 'daily_balance.start', 'daily_balance.close') },
+    { label: 'Reports',      to: '/reports',              icon: ChartBarIcon,      show: true },
+  ]
+  return all.filter(a => a.show)
+})
+
+const branchName = computed(() => {
+  const branches = (auth.user?.branches || []).filter(b => b?.name)
+  return branches.length === 1 ? branches[0].name : ''
+})
+
+// Phnom Penh wall-clock "now", reused for both the greeting and for
+// picking today's date string used in the date_from/date_to filters below.
+const ppNow = new Date(nowForDatePicker().replace(' ', 'T'))
+const today = nowForDatePicker().split(' ')[0] // YYYY-MM-DD
+
+const greeting = computed(() => {
+  const h = ppNow.getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 18) return 'Good afternoon'
+  return 'Good evening'
+})
+
+const todayLabel = computed(() =>
+  ppNow.toLocaleDateString('en-US', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
+)
+
+function fmtUSD(v) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v || 0)
+}
+function fmtKHR(v) {
+  return Number(v || 0).toLocaleString() + '៛'
+}
+
+// ---- Today ----
+const todayDepositUSD = ref(0)
+const todayDepositKHR = ref(0)
+const todayDepositCount = ref(0)
+const todayWithdrawalUSD = ref(0)
+const todayWithdrawalKHR = ref(0)
+const todayWithdrawalCount = ref(0)
+const todayNewClients = ref(0)
+
+const netUSD = computed(() => todayDepositUSD.value - todayWithdrawalUSD.value)
+const netKHR = computed(() => todayDepositKHR.value - todayWithdrawalKHR.value)
+
+// ---- All time ----
+const allTimeDepUSD = ref(0)
+const allTimeDepKHR = ref(0)
+const allTimeWdUSD = ref(0)
+const allTimeWdKHR = ref(0)
+const clientCount = ref('—')
+const icCount = ref('—')
+
+const allTimeStats = computed(() => [
+  { label: 'Dep USD', value: fmtUSD(allTimeDepUSD.value), sub: 'All time', icon: ArrowDownTrayIcon, tint: '#22C55E' },
+  { label: 'Dep KHR', value: fmtKHR(allTimeDepKHR.value), sub: 'All time', icon: ArrowDownTrayIcon, tint: '#22C55E' },
+  { label: 'WD USD',  value: fmtUSD(allTimeWdUSD.value),  sub: 'All time', icon: ArrowUpTrayIcon,   tint: '#F97316' },
+  { label: 'WD KHR',  value: fmtKHR(allTimeWdKHR.value),  sub: 'All time', icon: ArrowUpTrayIcon,   tint: '#F97316' },
+  { label: 'Clients', value: String(clientCount.value),   sub: 'Total clients', icon: UserGroupIcon, tint: '#938af4' },
+  { label: 'Interesting', value: String(icCount.value),   sub: 'Not converted', icon: StarIcon,       tint: '#F59E0B' },
 ])
 
-function priorityColor(p) {
-  return { low: 'bg-gray-100 text-gray-600', medium: 'bg-yellow-100 text-yellow-700', high: 'bg-orange-100 text-orange-700', critical: 'bg-red-100 text-red-700' }[p] || 'bg-gray-100 text-gray-600'
-}
-
-function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—' }
-
-function fmtCurrency(val, cur) {
-  if (cur === 'KHR') return Number(val || 0).toLocaleString() + '៛'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val || 0)
-}
-
 onMounted(async () => {
-  // Clients
+  // Today's deposits/withdrawals — filtered server-side via date_from/date_to,
+  // same param names DepositListView/WithdrawalListView already use.
   try {
-    const res = await getClients({ page: 1, page_size: 5, sort_by: 'created_at', sort_dir: 'desc' })
-    recentClients.value = res.data || []
-    stats.value[0].value = res.meta?.total_items ?? '—'
-  } catch { } finally { loadingClients.value = false }
+    const res = await getDeposits({ date_from: today, date_to: today, page: 1, page_size: 1000 })
+    const items = res.data || []
+    todayDepositUSD.value = sumByCurrency(items, 'USD', 'amount')
+    todayDepositKHR.value = sumByCurrency(items, 'KHR', 'amount')
+    todayDepositCount.value = res.meta?.total_items ?? items.length
+  } catch { }
 
-  // Interesting clients
   try {
-    const res = await getICs({ page: 1, page_size: 5, sort_by: 'created_at', sort_dir: 'desc' })
-    recentICs.value = res.data || []
-    stats.value[1].value = res.meta?.total_items ?? '—'
-  } catch { } finally { loadingICs.value = false }
+    const res = await getWithdrawals({ date_from: today, date_to: today, page: 1, page_size: 1000 })
+    const items = res.data || []
+    todayWithdrawalUSD.value = sumByCurrency(items, 'USD', 'amount')
+    todayWithdrawalKHR.value = sumByCurrency(items, 'KHR', 'amount')
+    todayWithdrawalCount.value = res.meta?.total_items ?? items.length
+  } catch { }
 
-  // Deposits
+  // Clients API has no date_from/date_to filter (and, unlike deposits/
+  // withdrawals, no sort_by/sort_dir either), so "new clients today" is
+  // approximated by pulling a large page and counting how many fall on
+  // today's date client-side. page_size is generous rather than relying
+  // on any assumed default ordering.
   try {
-    const res = await getDeposits({ page: 1, page_size: 5, sort_by: 'date', sort_dir: 'desc' })
-    recentDeposits.value = res.data || []
-    stats.value[2].value = res.meta?.total_items ?? '—'
-  } catch { } finally { loadingDeposits.value = false }
+    const res = await getClients({ page: 1, page_size: 1000 })
+    todayNewClients.value = (res.data || []).filter(c => (c.date_joined || '').slice(0, 10) === today).length
+    clientCount.value = res.meta?.total_items ?? '—'
+  } catch { }
 
-  // Withdrawals
   try {
-    const res = await getWithdrawals({ page: 1, page_size: 5, sort_by: 'date', sort_dir: 'desc' })
-    recentWithdrawals.value = res.data || []
-    stats.value[3].value = res.meta?.total_items ?? '—'
-  } catch { } finally { loadingWithdrawals.value = false }
+    const res = await getICs({ page: 1, page_size: 1 })
+    icCount.value = res.meta?.total_items ?? '—'
+  } catch { }
+
+  // All-time totals — same "fetch a big page, sum client-side with
+  // sumByCurrency" pattern already used by DepositReport.vue / WithdrawalReport.vue.
+  try {
+    const res = await getDeposits({ page: 1, page_size: 500, sort_by: 'date', sort_dir: 'desc' })
+    const items = res.data || []
+    allTimeDepUSD.value = sumByCurrency(items, 'USD', 'amount')
+    allTimeDepKHR.value = sumByCurrency(items, 'KHR', 'amount')
+  } catch { }
+
+  try {
+    const res = await getWithdrawals({ page: 1, page_size: 500, sort_by: 'date', sort_dir: 'desc' })
+    const items = res.data || []
+    allTimeWdUSD.value = sumByCurrency(items, 'USD', 'amount')
+    allTimeWdKHR.value = sumByCurrency(items, 'KHR', 'amount')
+  } catch { }
 })
 </script>

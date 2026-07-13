@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-5">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div><h1 class="text-xl font-semibold text-gray-800">{{ title }}</h1><p class="text-sm text-gray-500">{{ subtitle }}</p></div>
       <button v-if="canCreate" @click="openCreate" class="btn-primary flex items-center gap-2"><PlusIcon class="w-4 h-4" />New</button>
     </div>
@@ -13,62 +13,105 @@
       <button @click="resetFilters" class="btn-secondary btn-sm">Reset</button>
     </div>
 
-    <AppTable :columns="columns" :rows="filteredItems" :loading="loading">
-      <template v-for="col in colorCols" :key="col" #[`cell-${col}`]="{ value }">
-        <div class="flex items-center gap-2">
-          <div v-if="value" class="w-4 h-4 rounded-full border border-gray-200" :style="{ background: value }" />
-          <span class="text-sm text-gray-700">{{ value || '—' }}</span>
+    <div class="hidden sm:block">
+      <AppTable :columns="columns" :rows="filteredItems" :loading="loading">
+        <template v-for="col in colorCols" :key="col" #[`cell-${col}`]="{ value }">
+          <div class="flex items-center gap-2">
+            <div v-if="value" class="w-4 h-4 rounded-full border border-gray-200" :style="{ background: value }" />
+            <span class="text-sm text-gray-700">{{ value || '—' }}</span>
+          </div>
+        </template>
+        <template #cell-branch="{ row }">
+          <span v-if="row.branch" class="badge bg-indigo-50 text-indigo-700 font-mono text-xs">{{ row.branch.code }}</span>
+          <span v-else class="text-gray-400 text-xs">—</span>
+        </template>
+        <template #cell-bank_type="{ row }">
+          <span v-if="row.bank_type" class="text-sm text-gray-700">{{ row.bank_type.name }}</span>
+          <span v-else class="text-gray-400 text-xs">—</span>
+        </template>
+        <template #cell-currency_type="{ row }">
+          <span v-if="row.currency_type" class="badge bg-emerald-50 text-emerald-700 font-mono text-xs">{{ row.currency_type.code }}</span>
+          <span v-else class="text-gray-400 text-xs">—</span>
+        </template>
+        <template #cell-cash="{ value }">
+          <span class="font-mono text-sm text-gray-700">{{ Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+        </template>
+        <template #cell-credit="{ value }">
+          <span class="font-mono text-sm text-gray-700">{{ Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+        </template>
+        <template #cell-created_by="{ row }">
+          <span class="text-sm text-gray-600">{{ row.created_by?.name || '—' }}</span>
+        </template>
+        <template #cell-is_active="{ value }">
+          <span :class="['badge', value ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500']">{{ value ? 'Active' : 'Inactive' }}</span>
+        </template>
+        <template #cell-calc_type="{ value }">
+          <span class="badge bg-blue-100 text-blue-700">{{ value }}</span>
+        </template>
+        <template #cell-is_base="{ value }">
+          <span :class="['badge', value ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500']">{{ value ? 'Base' : '—' }}</span>
+        </template>
+        <template #actions="{ row }">
+          <div class="flex items-center justify-end gap-1">
+            <button v-if="topupField && topupFn && canBalance" @click="openBalanceModal(row, 'topup')" class="btn-icon bg-emerald-50 text-emerald-600" title="Top Up">
+              <BanknotesIcon class="w-4 h-4" />
+            </button>
+            <button v-if="topupField && withdrawFn && canBalance" @click="openBalanceModal(row, 'withdrawal')" class="btn-icon bg-orange-50 text-orange-600" title="Withdraw">
+              <MinusCircleIcon class="w-4 h-4" />
+            </button>
+            <button v-if="topupField && adjustFn && canAdjust" @click="openAdjustModal(row)" class="btn-icon bg-indigo-50 text-indigo-600" title="Adjust">
+              <ScaleIcon class="w-4 h-4" />
+            </button>
+            <button v-if="topupField && entityType" @click="goToHistory(row)" class="btn-icon bg-gray-100 text-gray-500" title="History">
+              <ClockIcon class="w-4 h-4" />
+            </button>
+            <button v-if="canEdit" @click="openEdit(row)" class="btn-icon"><PencilIcon class="w-4 h-4" /></button>
+            <button v-if="canDelete" @click="confirmDelete(row)" class="btn-icon text-red-500"><TrashIcon class="w-4 h-4" /></button>
+          </div>
+        </template>
+      </AppTable>
+    </div>
+
+    <!-- Mobile card list — generic across every lookup entity (name or
+         account_name, code or account_number, branch/currency badges when
+         present, plus the same action buttons/functions as the desktop
+         table above, so Create/Edit/Delete/Top Up/Withdraw/Adjust all stay
+         on the exact same modals and logic, just triggered from a card
+         instead of a table row. -->
+    <div class="sm:hidden space-y-3">
+      <div v-if="loading" class="flex items-center justify-center gap-2 text-gray-400 py-10 text-sm">
+        <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        Loading…
+      </div>
+      <div v-else-if="!filteredItems.length" class="text-center py-10 text-gray-400 text-sm">No records found</div>
+      <div v-for="row in filteredItems" :key="row.id" class="card p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 bg-indigo-50 text-indigo-600">
+            {{ (row.name || row.account_name || '?').charAt(0).toUpperCase() }}
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-gray-800 truncate">{{ row.name || row.account_name }}</p>
+            <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+              <span v-if="row.currency_type" class="font-mono">{{ row.currency_type.code }}</span>
+              <span v-if="topupField">{{ Number(row[topupField] || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+              <span v-if="row.branch">· {{ row.branch.code }}</span>
+              <span :class="row.is_active ? 'text-green-600' : 'text-gray-400'">· {{ row.is_active ? 'Active' : 'Inactive' }}</span>
+            </p>
+          </div>
         </div>
-      </template>
-      <template #cell-branch="{ row }">
-        <span v-if="row.branch" class="badge bg-indigo-50 text-indigo-700 font-mono text-xs">{{ row.branch.code }}</span>
-        <span v-else class="text-gray-400 text-xs">—</span>
-      </template>
-      <template #cell-bank_type="{ row }">
-        <span v-if="row.bank_type" class="text-sm text-gray-700">{{ row.bank_type.name }}</span>
-        <span v-else class="text-gray-400 text-xs">—</span>
-      </template>
-      <template #cell-currency_type="{ row }">
-        <span v-if="row.currency_type" class="badge bg-emerald-50 text-emerald-700 font-mono text-xs">{{ row.currency_type.code }}</span>
-        <span v-else class="text-gray-400 text-xs">—</span>
-      </template>
-      <template #cell-cash="{ value }">
-        <span class="font-mono text-sm text-gray-700">{{ Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
-      </template>
-      <template #cell-credit="{ value }">
-        <span class="font-mono text-sm text-gray-700">{{ Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
-      </template>
-      <template #cell-created_by="{ row }">
-        <span class="text-sm text-gray-600">{{ row.created_by?.name || '—' }}</span>
-      </template>
-      <template #cell-is_active="{ value }">
-        <span :class="['badge', value ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500']">{{ value ? 'Active' : 'Inactive' }}</span>
-      </template>
-      <template #cell-calc_type="{ value }">
-        <span class="badge bg-blue-100 text-blue-700">{{ value }}</span>
-      </template>
-      <template #cell-is_base="{ value }">
-        <span :class="['badge', value ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500']">{{ value ? 'Base' : '—' }}</span>
-      </template>
-      <template #actions="{ row }">
-        <div class="flex items-center justify-end gap-1">
-          <button v-if="topupField && topupFn && canBalance" @click="openBalanceModal(row, 'topup')" class="btn-icon text-emerald-600" title="Top Up">
-            <BanknotesIcon class="w-4 h-4" />
-          </button>
-          <button v-if="topupField && withdrawFn && canBalance" @click="openBalanceModal(row, 'withdrawal')" class="btn-icon text-orange-600" title="Withdraw">
-            <MinusCircleIcon class="w-4 h-4" />
-          </button>
-          <button v-if="topupField && adjustFn && canAdjust" @click="openAdjustModal(row)" class="btn-icon text-indigo-600" title="Adjust">
-            <ScaleIcon class="w-4 h-4" />
-          </button>
-          <button v-if="topupField && entityType" @click="goToHistory(row)" class="btn-icon text-gray-500" title="History">
-            <ClockIcon class="w-4 h-4" />
-          </button>
-          <button v-if="canEdit" @click="openEdit(row)" class="btn-icon"><PencilIcon class="w-4 h-4" /></button>
-          <button v-if="canDelete" @click="confirmDelete(row)" class="btn-icon text-red-500"><TrashIcon class="w-4 h-4" /></button>
+        <div class="flex flex-wrap items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-50">
+          <button v-if="topupField && topupFn && canBalance" @click="openBalanceModal(row, 'topup')" class="btn-icon bg-emerald-50 text-emerald-600" title="Top Up"><BanknotesIcon class="w-4 h-4" /></button>
+          <button v-if="topupField && withdrawFn && canBalance" @click="openBalanceModal(row, 'withdrawal')" class="btn-icon bg-orange-50 text-orange-600" title="Withdraw"><MinusCircleIcon class="w-4 h-4" /></button>
+          <button v-if="topupField && adjustFn && canAdjust" @click="openAdjustModal(row)" class="btn-icon bg-indigo-50 text-indigo-600" title="Adjust"><ScaleIcon class="w-4 h-4" /></button>
+          <button v-if="topupField && entityType" @click="goToHistory(row)" class="btn-icon bg-gray-100 text-gray-500" title="History"><ClockIcon class="w-4 h-4" /></button>
+          <button v-if="canEdit" @click="openEdit(row)" class="btn-icon bg-gray-100" title="Edit"><PencilIcon class="w-4 h-4" /></button>
+          <button v-if="canDelete" @click="confirmDelete(row)" class="btn-icon bg-red-50 text-red-500" title="Delete"><TrashIcon class="w-4 h-4" /></button>
         </div>
-      </template>
-    </AppTable>
+      </div>
+    </div>
 
     <!-- Create/Edit Modal -->
     <AppModal v-model="modal" :title="editing ? `Edit ${title.slice(0, -1)}` : `New ${title.slice(0, -1)}`" size="md">
@@ -90,15 +133,15 @@
     <AppModal v-if="topupField" v-model="balanceModal" :title="balanceMode === 'withdrawal' ? `Withdraw ${topupLabel}` : `Top Up ${topupLabel}`" size="sm">
       <div class="space-y-4">
         <div class="bg-gray-50 rounded-lg p-3 space-y-1.5 text-sm">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-3">
             <span class="text-gray-500">Name</span>
             <span class="font-medium text-gray-800">{{ balanceTarget?.name || balanceTarget?.account_name || '—' }}</span>
           </div>
-          <div class="flex items-center justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-3">
             <span class="text-gray-500">Code</span>
             <span class="font-mono text-gray-700">{{ balanceTarget?.code || balanceTarget?.account_number || '—' }}</span>
           </div>
-          <div class="flex items-center justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-3">
             <span class="text-gray-500">Currency</span>
             <span class="font-mono text-gray-700">{{ balanceTarget?.currency_type?.code || '—' }}</span>
           </div>
@@ -149,7 +192,7 @@
     <AppModal v-if="topupField" v-model="adjustModal" title="Adjustment" size="sm">
       <div class="space-y-4">
         <div class="bg-gray-50 rounded-lg p-3 space-y-1.5 text-sm">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-3">
             <span class="text-gray-500">Name</span>
             <span class="font-medium text-gray-800">{{ adjustTarget?.name || adjustTarget?.account_name || '—' }}</span>
           </div>

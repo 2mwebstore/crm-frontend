@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-5">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold text-gray-800">Roles & Permissions</h1>
         <p class="text-sm text-gray-500 mt-0.5">Manage access control</p>
@@ -68,7 +68,7 @@
 
         <!-- Permissions grid — show on create AND on edit (SA always, non-SA only own roles) -->
         <div v-if="showPerms">
-          <div class="flex items-center justify-between mb-2">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
             <label class="label mb-0">Permissions
               <span class="text-gray-400 font-normal text-xs ml-1">{{ form.permission_ids.length }}/{{ totalPerms }} selected</span>
             </label>

@@ -1,8 +1,11 @@
 <template>
   <header class="h-16 flex items-center justify-between px-6 border-b border-gray-100 flex-shrink-0" style="background:#ffffff">
-    <!-- Left: Hamburger + breadcrumb -->
+    <!-- Left: Back-to-hub (mobile) / Hamburger + breadcrumb (desktop) -->
     <div class="flex items-center gap-3">
-      <button @click="$emit('toggle-sidebar')" class="btn-icon">
+      <RouterLink v-if="hubBackTo" :to="hubBackTo" class="btn-icon flex lg:hidden">
+        <ArrowLeftIcon class="w-5 h-5" />
+      </RouterLink>
+      <button @click="$emit('toggle-sidebar')" class="btn-icon hidden lg:inline-flex">
         <Bars3Icon class="w-5 h-5" />
       </button>
       <nav class="hidden sm:flex items-center gap-1 text-sm text-gray-500">
@@ -13,26 +16,30 @@
     </div>
 
     <!-- Right: actions -->
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-1">
       <!-- Notification bell -->
-      <button class="btn-icon relative">
-        <BellIcon class="w-5 h-5" />
+      <button class="btn-icon relative flex items-center whitespace-nowrap">
+        <BuildingOfficeIcon class="w-5 h-5" />
+        <span v-if="branchName" class="text-sm font-medium text-bold">{{ branchName }}</span>
       </button>
 
       <!-- User menu -->
       <div class="relative" ref="menuRef">
-        <button @click="menuOpen = !menuOpen" class="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
-          <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold" style="background:#938af4">
+        <button @click="menuOpen = !menuOpen" class="flex items-center gap-0 sm:gap-2 pl-0 pr-0 sm:pr-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors max-w-[180px] sm:max-w-none">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0" style="background:#938af4">
             {{ userInitial }}
           </div>
-          <span class="hidden sm:block text-sm font-medium text-gray-700">
-            <span v-if="branchName">{{ branchName }}@</span>{{ auth.user?.name || 'User' }}
+          <span class="flex flex-col items-start min-w-0 leading-tight">
+            <span class="hidden sm:block text-sm font-medium text-gray-800 truncate max-w-[180px]">
+              {{ auth.user?.name || 'User' }}
+            </span>
+            <span class="hidden sm:block text-xs text-gray-400 truncate max-w-[180px]">{{ auth.user?.email }}</span>
           </span>
-          <ChevronDownIcon class="w-4 h-4 text-gray-400" />
+          <ChevronDownIcon class="w-4 h-4 text-gray-400 flex-shrink-0 hidden sm:block" />
         </button>
 
         <Transition name="menu">
-          <div v-if="menuOpen" class="absolute right-0 top-full mt-1 w-48 card shadow-lg py-1 z-50">
+          <div v-if="menuOpen" class="absolute right-0 top-full mt-2 w-52 card py-2 z-50" style="box-shadow: 0 12px 32px rgba(0,0,0,0.12)">
             <div class="px-4 py-2 border-b border-gray-100">
               <p class="text-xs font-medium text-gray-800">{{ auth.user?.name }}</p>
               <p class="text-xs text-gray-500 truncate">{{ auth.user?.email }}</p>
@@ -106,7 +113,7 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { onClickOutside } from '@vueuse/core'
 import { useAuthStore } from '@/stores/auth'
-import { Bars3Icon, BellIcon, ChevronDownIcon, UserIcon, LockClosedIcon, ArrowRightOnRectangleIcon, EyeIcon, EyeSlashIcon } from '@heroicons/vue/24/outline'
+import { Bars3Icon, BellIcon, ChevronDownIcon, UserIcon, LockClosedIcon, ArrowRightOnRectangleIcon, EyeIcon, EyeSlashIcon, BuildingOfficeIcon, ArrowLeftIcon } from '@heroicons/vue/24/outline'
 import AppModal from '@/components/common/AppModal.vue'
 import { changePassword } from '@/api/auth'
 import { useToast } from '@/composables/useToast'
@@ -128,6 +135,33 @@ const currentSection = computed(() => {
   const path = route.path.split('/')[1]
   return path ? path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ') : 'Dashboard'
 })
+
+// Maps each list page that's reached via a hub tile back to that hub, so
+// mobile users (who don't have the sidebar) have a way back. Only the
+// exact list-root paths are included — detail/create/edit sub-pages
+// already have their own "back to list" link in-page, so they're left
+// alone here rather than skipping a level.
+const HUB_BACK_MAP = {
+  '/interesting-clients': '/hub/clients',
+  '/clients':             '/hub/clients',
+  '/follow-ups':          '/hub/clients',
+  '/deposits':             '/hub/account',
+  '/withdrawals':          '/hub/account',
+  '/daily-balance':        '/hub/account',
+  '/turnover-bets':        '/hub/account',
+  '/reports':              '/hub/reports',
+  '/users':               '/hub/setup',
+  '/roles':               '/hub/setup',
+  '/branches':            '/hub/setup',
+  '/lookup/levels':           '/hub/setup',
+  '/lookup/contact-sources':  '/hub/setup',
+  '/lookup/bank-types':       '/hub/setup',
+  '/lookup/company-banks':   '/hub/setup',
+  '/lookup/product-types':   '/hub/setup',
+  '/lookup/bonus-options':   '/hub/setup',
+  '/lookup/currencies':       '/hub/setup',
+}
+const hubBackTo = computed(() => HUB_BACK_MAP[route.path] || null)
 
 // Only shows the "BranchName@" prefix when the user has exactly one
 // branch assigned. Hidden entirely (empty string) for a Super Admin / no

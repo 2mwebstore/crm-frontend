@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-5">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold text-gray-800">Branches</h1>
         <p class="text-sm text-gray-500 mt-0.5">Manage organizational branches and their code prefixes</p>

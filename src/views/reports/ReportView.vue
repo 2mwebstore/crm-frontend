@@ -28,6 +28,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { StarIcon, UserGroupIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, CurrencyDollarIcon, CalendarDaysIcon, ScaleIcon, QueueListIcon } from '@heroicons/vue/24/outline'
 import ICReport         from './ICReport.vue'
 import ClientReport     from './ClientReport.vue'
@@ -38,7 +39,6 @@ import FollowUpReport   from './FollowUpReport.vue'
 import PLReport         from './PLReport.vue'
 import TransactionsFeedReport from './TransactionsFeedReport.vue'
 
-const activeTab = ref('ic')
 const tabs = [
   { id: 'ic',            label: 'Interesting Clients', icon: StarIcon },
   { id: 'clients',       label: 'Clients',             icon: UserGroupIcon },
@@ -49,4 +49,11 @@ const tabs = [
   { id: 'pl',            label: 'Profit & Loss',       icon: ScaleIcon },
   { id: 'transactions',  label: 'All Transactions',    icon: QueueListIcon },
 ]
+
+// Lets links like /reports?tab=deposits (used by the new Reports hub page)
+// open straight on that tab. Falls back to the original default ('ic')
+// when there's no ?tab= or it doesn't match a known tab id — existing
+// behavior for anyone who just clicks "Reports" in the sidebar/nav.
+const route = useRoute()
+const activeTab = ref(tabs.some(t => t.id === route.query.tab) ? route.query.tab : 'ic')
 </script>

@@ -3,7 +3,7 @@
   <div v-else-if="deposit" class="max-w-3xl mx-auto space-y-5">
 
     <!-- Header -->
-    <div class="flex items-start justify-between">
+    <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="flex items-center gap-3">
         <RouterLink to="/deposits" class="btn-icon"><ArrowLeftIcon class="w-5 h-5" /></RouterLink>
         <div>

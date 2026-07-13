@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <!-- Header with button -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold text-gray-800">User Management</h1>
         <p class="text-sm text-gray-500 mt-0.5">

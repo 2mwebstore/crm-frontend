@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center" style="background:#f8f8f8">
+  <div class="min-h-screen flex items-center justify-center px-4" style="background:#f8f8f8">
     <div class="w-full max-w-md">
       <!-- Card -->
-      <div class="card p-8 shadow-sm">
+      <div class="card p-6 sm:p-8">
         <!-- Logo -->
         <div class="flex flex-col items-center mb-8">
           <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-3" style="background:#938af4">

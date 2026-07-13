@@ -1,8 +1,8 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="$emit('update:modelValue', false)">
-        <div class="fixed inset-0 bg-black/40" />
+      <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/40" @click="$emit('update:modelValue', false)" />
         <div :class="['relative card shadow-xl w-full', sizeClass]">
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">

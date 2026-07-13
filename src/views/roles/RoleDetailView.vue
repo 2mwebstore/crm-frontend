@@ -29,7 +29,7 @@
 
     <!-- Permission groups -->
     <div class="card p-5" v-if="role">
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h2 class="text-sm font-semibold text-gray-700">
           Permissions
           <span class="text-gray-400 font-normal">({{ selected.length }} selected)</span>

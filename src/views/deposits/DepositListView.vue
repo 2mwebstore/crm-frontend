@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-5">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold text-gray-800">Deposits</h1>
         <p class="text-sm text-gray-500 mt-0.5">Manage client deposit transactions</p>
@@ -78,8 +78,34 @@
       </div>
     </div>
 
-    <!-- Table -->
-    <div class="card overflow-hidden">
+    <!-- Today's Deposits banner (mobile only) -->
+    <div class="sm:hidden rounded-xl p-5 text-white" style="background:#22C55E">
+      <div class="flex items-center justify-between text-sm font-medium">
+        <span class="flex items-center gap-1.5"><ArrowDownTrayIcon class="w-4 h-4" /> Today's Deposits — {{ todayLabel }}</span>
+        <span class="text-xs text-white/80">{{ todayDeposit.count }} TRANSACTIONS</span>
+      </div>
+      <div class="grid grid-cols-2 gap-3 mt-4">
+        <div class="bg-white/15 rounded-lg p-2.5">
+          <p class="text-xs text-white/70 uppercase tracking-wide">Deposit USD</p>
+          <p class="font-bold mt-0.5">{{ fmtCurrency(todayDeposit.usd, 'USD') }}</p>
+        </div>
+        <div class="bg-white/15 rounded-lg p-2.5">
+          <p class="text-xs text-white/70 uppercase tracking-wide">Deposit KHR</p>
+          <p class="font-bold mt-0.5">{{ fmtCurrency(todayDeposit.khr, 'KHR') }}</p>
+        </div>
+        <div class="bg-white/15 rounded-lg p-2.5">
+          <p class="text-xs text-white/70 uppercase tracking-wide">Bonus USD</p>
+          <p class="font-bold mt-0.5">+{{ fmtCurrency(todayDeposit.bonusUsd, 'USD') }}</p>
+        </div>
+        <div class="bg-white/15 rounded-lg p-2.5">
+          <p class="text-xs text-white/70 uppercase tracking-wide">Bonus KHR</p>
+          <p class="font-bold mt-0.5">+{{ fmtCurrency(todayDeposit.bonusKhr, 'KHR') }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table (desktop) -->
+    <div class="hidden sm:block card overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead class="bg-gray-50 border-b border-gray-100">
@@ -135,21 +161,17 @@
                 <span v-if="row.bonus_amount > 0" class="text-green-600 font-medium text-sm whitespace-nowrap">+{{ fmtCurrency(row.bonus_amount, row.currency) }}</span>
                 <span v-else class="text-gray-400 text-xs">—</span>
               </td>
-              <td class="table-cell">
-                <span :class="['badge', statusColor(row.status)]">{{ row.status }}</span>
-              </td>
+              <td class="table-cell"><span :class="['badge', statusColor(row.status)]">{{ row.status }}</span></td>
               <td class="table-cell text-sm text-gray-600 whitespace-nowrap">{{ fmtDate(row.approved_at) }}</td>
-              <td class="table-cell text-sm text-gray-700  whitespace-nowrap">{{ row.approved_by?.name || '—' }}</td>
-              <td class="table-cell max-w-32">
-                <p class="text-xs text-gray-600 truncate  whitespace-nowrap">{{ row.remark || '—' }}</p>
-              </td>
+              <td class="table-cell text-sm text-gray-600 whitespace-nowrap">{{ row.approved_by?.name || '—' }}</td>
+              <td class="table-cell max-w-40"><p class="text-xs text-gray-600 truncate">{{ row.remark || '—' }}</p></td>
               <td class="table-cell">
                 <div class="flex items-center justify-end gap-1">
-                  <RouterLink :to="`/deposits/${row.id}`" class="btn-icon" title="View"><EyeIcon class="w-4 h-4" /></RouterLink>
-                  <RouterLink :to="`/deposits/${row.id}/edit`" class="btn-icon" title="Edit"><PencilIcon class="w-4 h-4" /></RouterLink>
-                  <button v-if="row.status === 'pending'" @click="doApprove(row, 'approved')" class="btn-icon text-green-600" title="Approve"><CheckCircleIcon class="w-4 h-4" /></button>
-                  <button v-if="row.status === 'pending'" @click="doApprove(row, 'rejected')" class="btn-icon text-red-500" title="Reject"><XCircleIcon class="w-4 h-4" /></button>
-                  <button @click="confirmDelete(row)" class="btn-icon text-red-500" title="Delete"><TrashIcon class="w-4 h-4" /></button>
+                  <RouterLink :to="`/deposits/${row.id}`" class="btn-icon bg-gray-100" title="View"><EyeIcon class="w-4 h-4" /></RouterLink>
+                  <RouterLink :to="`/deposits/${row.id}/edit`" class="btn-icon bg-gray-100" title="Edit"><PencilIcon class="w-4 h-4" /></RouterLink>
+                  <button v-if="row.status === 'pending'" @click="doApprove(row, 'approved')" class="btn-icon bg-green-50 text-green-600" title="Approve"><CheckCircleIcon class="w-4 h-4" /></button>
+                  <button v-if="row.status === 'pending'" @click="doApprove(row, 'rejected')" class="btn-icon bg-red-50 text-red-500" title="Reject"><XCircleIcon class="w-4 h-4" /></button>
+                  <button @click="confirmDelete(row)" class="btn-icon bg-red-50 text-red-500" title="Delete"><TrashIcon class="w-4 h-4" /></button>
                 </div>
               </td>
             </tr>
@@ -168,13 +190,61 @@
       </div>
     </div>
 
+    <!-- Card list (mobile) — Edit/View link to the existing full pages -->
+    <div class="sm:hidden space-y-3">
+      <div v-if="loading" class="flex items-center justify-center gap-2 text-gray-400 py-10 text-sm">
+        <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        Loading…
+      </div>
+      <div v-else-if="!items.length" class="text-center py-10 text-gray-400 text-sm">No deposits found</div>
+      <div
+        v-for="row in items"
+        :key="row.id"
+        class="card p-4"
+      >
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-green-50">
+            <ArrowDownTrayIcon class="w-5 h-5 text-green-600" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-gray-800 truncate">{{ row.client?.name || '—' }}</p>
+            <p class="text-xs text-gray-400 mt-0.5 truncate">{{ row.client?.code }} <span v-if="row.company_bank">· {{ row.company_bank.account_name }}</span></p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ fmtDate(row.date) }}</p>
+          </div>
+          <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
+            <span class="font-bold whitespace-nowrap" style="color:#938af4">{{ fmtCurrency(row.amount, row.currency) }}</span>
+            <span :class="['badge text-xs', statusColor(row.status)]">{{ row.status }}</span>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-50">
+          <RouterLink :to="`/deposits/${row.id}`" class="btn-icon bg-gray-100" title="View"><EyeIcon class="w-4 h-4" /></RouterLink>
+          <RouterLink :to="`/deposits/${row.id}/edit`" class="btn-icon bg-gray-100" title="Edit"><PencilIcon class="w-4 h-4" /></RouterLink>
+          <button v-if="row.status === 'pending'" @click="doApprove(row, 'approved')" class="btn-icon bg-green-50 text-green-600" title="Approve"><CheckCircleIcon class="w-4 h-4" /></button>
+          <button v-if="row.status === 'pending'" @click="doApprove(row, 'rejected')" class="btn-icon bg-red-50 text-red-500" title="Reject"><XCircleIcon class="w-4 h-4" /></button>
+          <button @click="confirmDelete(row)" class="btn-icon bg-red-50 text-red-500" title="Delete"><TrashIcon class="w-4 h-4" /></button>
+        </div>
+      </div>
+
+      <div v-if="meta && meta.total_items > 0" class="flex items-center justify-between pt-1 text-sm text-gray-500">
+        <span class="text-xs">{{ meta.total_items }} total</span>
+        <div class="flex items-center gap-1">
+          <button :disabled="currentPage <= 1" @click="goPage(currentPage - 1)" class="btn-icon disabled:opacity-40"><ChevronLeftIcon class="w-4 h-4" /></button>
+          <span class="px-3 py-1 bg-gray-100 rounded text-xs">{{ currentPage }} / {{ meta.total_pages }}</span>
+          <button :disabled="currentPage >= meta.total_pages" @click="goPage(currentPage + 1)" class="btn-icon disabled:opacity-40"><ChevronRightIcon class="w-4 h-4" /></button>
+        </div>
+      </div>
+    </div>
+
     <ConfirmDialog v-model="deleteDialog" @confirm="doDelete" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { PlusIcon, EyeIcon, PencilIcon, TrashIcon, CheckCircleIcon, XCircleIcon, ChevronLeftIcon, ChevronRightIcon, FunnelIcon } from '@heroicons/vue/24/outline'
+import { PlusIcon, EyeIcon, PencilIcon, TrashIcon, CheckCircleIcon, XCircleIcon, ChevronLeftIcon, ChevronRightIcon, FunnelIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import PageSizeSelect from '@/components/common/PageSizeSelect.vue'
@@ -185,6 +255,7 @@ import { getBranches } from '@/api/branches'
 import { getUsersInScope } from '@/api/users'
 import { getClients } from '@/api/clients'
 import { useLookupStore } from '@/stores/lookup'
+import { nowForDatePicker } from '@/utils/datetime'
 
 
 const { success, error } = useToast()
@@ -203,6 +274,30 @@ const clients    = ref([])
 const bankTypes = ref([])
 const products   = ref([])
 const lookup     = useLookupStore()
+
+// Mobile-only "Today's Deposits" banner. Fetched separately from the
+// paginated/filtered `items` above (which is the current results page,
+// not necessarily today's data), the same date_from/date_to params the
+// desktop filters already use.
+const today = nowForDatePicker().split(' ')[0]
+const todayLabel = computed(() => {
+  const [y, m, d] = today.split('-')
+  return `${d}/${m}/${y}`
+})
+const todayDeposit = ref({ usd: 0, khr: 0, bonusUsd: 0, bonusKhr: 0, count: 0 })
+async function loadTodayDeposit() {
+  try {
+    const res = await getDeposits({ date_from: today, date_to: today, page: 1, page_size: 1000, status: 'approved' })
+    const rows = res.data || []
+    todayDeposit.value = {
+      usd: rows.filter(r => r.currency === 'USD').reduce((s, r) => s + Number(r.amount || 0), 0),
+      khr: rows.filter(r => r.currency === 'KHR').reduce((s, r) => s + Number(r.amount || 0), 0),
+      bonusUsd: rows.filter(r => r.currency === 'USD').reduce((s, r) => s + Number(r.bonus_amount || 0), 0),
+      bonusKhr: rows.filter(r => r.currency === 'KHR').reduce((s, r) => s + Number(r.bonus_amount || 0), 0),
+      count: res.meta?.total_items ?? rows.length,
+    }
+  } catch { }
+}
 
 const currentPage     = computed(() => page.value)
 const currentPageSize = computed(() => pageSize.value)
@@ -267,6 +362,7 @@ async function doApprove(row, status) {
 
 onMounted(async () => {
   load()
+  loadTodayDeposit()
   lookup.loadAll()
   try { const r = await getBranches({ show_all: false }); branches.value = (r.data||[]).map(b=>({id:b.id,name:b.name,sub:b.code})) } catch {}
   try { const r = await getClients({ page:1, page_size:500 }); clients.value = (r.data||[]).map(c=>({id:c.id,name:c.name,sub:c.code})) } catch {}

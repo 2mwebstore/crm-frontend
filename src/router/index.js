@@ -19,6 +19,14 @@ const router = createRouter({
         { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/dashboard/DashboardView.vue') },
         { path: 'daily-balance', name: 'DailyBalance', component: () => import('@/views/dashboard/DailyBalanceView.vue'), meta: { perms: ['daily_balance.view', 'daily_balance.start', 'daily_balance.close'] } },
 
+        // Hub pages (mobile bottom-tab landing pages). Purely navigational —
+        // each links into the existing routes below, so nothing here
+        // duplicates or changes any existing page's logic.
+        { path: 'hub/clients', name: 'ClientsHub', component: () => import('@/views/hub/ClientsHubView.vue') },
+        { path: 'hub/account', name: 'AccountHub', component: () => import('@/views/hub/AccountHubView.vue') },
+        { path: 'hub/reports', name: 'ReportsHub', component: () => import('@/views/hub/ReportsHubView.vue') },
+        { path: 'hub/setup',   name: 'SetupHub',   component: () => import('@/views/hub/SetupHubView.vue') },
+
         // Interesting Clients
         { path: 'interesting-clients',          name: 'InterestingClients', component: () => import('@/views/interesting-clients/ICListView.vue'),   meta: { perms: ['interesting_clients.view'] } },
         { path: 'interesting-clients/create',   name: 'ICCreate',           component: () => import('@/views/interesting-clients/ICFormView.vue'),   meta: { perms: ['interesting_clients.create'] } },
