@@ -18,7 +18,7 @@ const router = createRouter({
         { path: '', redirect: '/dashboard' },
         { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/dashboard/DashboardView.vue') },
         { path: 'daily-balance', name: 'DailyBalance', component: () => import('@/views/dashboard/DailyBalanceView.vue'), meta: { perms: ['daily_balance.view', 'daily_balance.start', 'daily_balance.close'] } },
-
+        { path: 'audit-logs', name: 'AuditLogs', component: () => import('@/views/audit-logs/AuditLogListView.vue'), meta: { perms: ['audit_logs.view'] } },
         // Hub pages (mobile bottom-tab landing pages). Purely navigational —
         // each links into the existing routes below, so nothing here
         // duplicates or changes any existing page's logic.

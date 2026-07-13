@@ -3,7 +3,7 @@ import {
   HomeIcon, StarIcon, UserGroupIcon, UsersIcon, ShieldCheckIcon,
   TagIcon, Squares2X2Icon, BanknotesIcon, ArrowDownTrayIcon, ArrowUpTrayIcon,
   ChartBarIcon, CurrencyDollarIcon, CalendarDaysIcon,
-  BuildingOfficeIcon, BuildingLibraryIcon
+  BuildingOfficeIcon, BuildingLibraryIcon, ClipboardDocumentListIcon
 } from '@heroicons/vue/24/outline'
 import { useAuthStore } from '@/stores/auth'
 
@@ -45,6 +45,7 @@ export function useNavGroups() {
         { to: '/users',    label: 'Users',               icon: UsersIcon,          show: isSA.value || auth.can('users.view') },
         { to: '/roles',    label: 'Roles & Permissions', icon: ShieldCheckIcon,    show: isSA.value || auth.can('roles.view') },
         { to: '/branches', label: 'Branches',            icon: BuildingOfficeIcon, show: isSA.value || auth.can('branch.view') },
+        { to: '/audit-logs', label: 'Audit Log',         icon: ClipboardDocumentListIcon, show: isSA.value || auth.can('audit_logs.view') },
       ]
     },
     {
