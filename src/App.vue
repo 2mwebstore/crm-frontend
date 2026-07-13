@@ -12,8 +12,8 @@ import { installDevToolsGuard } from '@/composables/useDevToolsGuard'
 const { toastRef } = useToast()
 
 onMounted(() => {
-  // Only in production builds — local dev needs DevTools to work.
-  if (import.meta.env.PROD) {
+  const isProdMode = import.meta.env.MODE === true
+  if (isProdMode) {
     installDevToolsGuard()
   }
 })
