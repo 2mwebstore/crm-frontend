@@ -217,7 +217,8 @@
             <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th class="table-header"></th>
-                <th class="table-header">Date</th>
+                <th class="table-header">Start Date</th>
+                <th class="table-header">Close Date</th>
                 <th class="table-header text-right" colspan="2">Opening Cash</th>
                 <th class="table-header text-right" colspan="2">Opening Credit</th>
                 <th class="table-header text-right" colspan="2">Closing Cash</th>
@@ -260,7 +261,24 @@
                       <ChevronRightIcon class="w-4 h-4 transition-transform" :class="{ 'rotate-90': expandedRows.has(row.id) }" />
                     </button>
                   </td>
-                  <td class="table-cell font-medium text-gray-800 whitespace-nowrap">{{ fmtDate(row.date) }}</td>
+                  <td class="table-cell font-medium text-gray-800 whitespace-nowrap">
+                    <div class="flex items-center gap-1.5">
+                      <button
+                        @click="downloadShiftImage(row)"
+                        class="btn-icon bg-gray-100 flex-shrink-0"
+                        title="Download this shift as an image"
+                        :disabled="downloadingId === row.id"
+                      >
+                        <svg v-if="downloadingId === row.id" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                        </svg>
+                        <CameraIcon v-else class="w-4 h-4" />
+                      </button>
+                      <span>{{ fmtTime(row.created_at) }}</span>
+                    </div>
+                  </td>
+                  <td class="table-cell font-medium text-gray-800 whitespace-nowrap">{{ fmtTime(row.closed_at) }}</td>
                   <td class="table-cell text-right font-mono">{{ usd(row.cash_usd) }}</td>
                   <td class="table-cell text-right font-mono">{{ khr(row.cash_khr) }}</td>
                   <td class="table-cell text-right font-mono">{{ usd(row.credit_usd) }}</td>
@@ -279,43 +297,104 @@
                 <tr v-if="expandedRows.has(row.id)" class="bg-gray-50/60">
                   <td></td>
                   <td colspan="15" class="px-4 pb-3">
-                    <div class="flex items-center justify-between mt-2 mb-1">
-                      <p class="text-xs font-semibold text-gray-500">Full ledger for this shift</p>
-                      <span v-if="shiftLedgerLoading === row.id" class="text-xs text-gray-400">Loading…</span>
+                    <!-- This wrapper (rounded, overflow-hidden, white bg) is exactly
+                         what downloadShiftImage() captures — kept as one clean,
+                         self-contained "receipt" element so the exported PNG has
+                         no clipped edges or transparent gaps around it. -->
+                    <div
+                      :ref="el => setDetailRef(row.id, el)"
+                      class="rounded-xl overflow-hidden bg-white border border-gray-100 p-4"
+                    >
+                      <div class="flex items-center justify-between mb-3">
+                        <div>
+                          <p class="text-sm font-semibold text-gray-800">Shift — {{ fmtTime(row.created_at) }}</p>
+                          <p class="text-xs text-gray-500 mt-0.5">
+                            Opened by {{ row.created_by?.name || '—' }}
+                            <span v-if="row.closed_at"> · Closed {{ fmtTime(row.closed_at) }} by {{ row.closed_by?.name || '—' }}</span>
+                            <span v-else> · Still open</span>
+                          </p>
+                        </div>
+                        <span v-if="shiftLedgerLoading === row.id" class="text-xs text-gray-400">Loading…</span>
+                      </div>
+
+                      <!-- Same data as the main table row (Opening/Closing
+                           Cash/Credit, Income, Started/Closed By) — included
+                           here so the downloaded image is a complete receipt
+                           on its own, not missing what the row itself shows. -->
+                      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4 bg-gray-50 rounded-lg p-3">
+                        <div>
+                          <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Opening Cash</p>
+                          <p class="text-sm font-mono text-gray-800">{{ usd(row.cash_usd) }} / {{ khr(row.cash_khr) }}</p>
+                        </div>
+                        <div>
+                          <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Opening Credit</p>
+                          <p class="text-sm font-mono text-gray-800">{{ usd(row.credit_usd) }} / {{ khr(row.credit_khr) }}</p>
+                        </div>
+                        <div>
+                          <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Closing Cash</p>
+                          <p class="text-sm font-mono text-gray-800">{{ row.closed_at ? `${usd(row.close_cash_usd)} / ${khr(row.close_cash_khr)}` : '—' }}</p>
+                        </div>
+                        <div>
+                          <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Closing Credit</p>
+                          <p class="text-sm font-mono text-gray-800">{{ row.closed_at ? `${usd(row.close_credit_usd)} / ${khr(row.close_credit_khr)}` : '—' }}</p>
+                        </div>
+                        <div>
+                          <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Income Cash</p>
+                          <p
+                            class="text-sm font-mono"
+                            :class="row.closed_at ? incomeColor(row.close_cash_usd - row.cash_usd) : 'text-gray-800'"
+                          >{{ row.closed_at ? `${signedUsd(row.close_cash_usd - row.cash_usd)} / ${signedKhr(row.close_cash_khr - row.cash_khr)}` : '—' }}</p>
+                        </div>
+                        <div>
+                          <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Income Credit</p>
+                          <p
+                            class="text-sm font-mono"
+                            :class="row.closed_at ? incomeColor(row.close_credit_usd - row.credit_usd) : 'text-gray-800'"
+                          >{{ row.closed_at ? `${signedUsd(row.close_credit_usd - row.credit_usd)} / ${signedKhr(row.close_credit_khr - row.credit_khr)}` : '—' }}</p>
+                        </div>
+                        <div>
+                          <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Started By</p>
+                          <p class="text-sm text-gray-800">{{ row.created_by?.name || '—' }}</p>
+                        </div>
+                        <div>
+                          <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Closed By</p>
+                          <p class="text-sm text-gray-800">{{ row.closed_by?.name || '—' }}</p>
+                        </div>
+                      </div>
+                      <table v-if="shiftLedgerRows(row).length" class="w-full text-xs border border-gray-200 rounded overflow-hidden bg-white">
+                        <thead class="bg-gray-50 border-b border-gray-100">
+                          <tr>
+                            <th class="table-header">Type</th>
+                            <th class="table-header">Label</th>
+                            <th class="table-header">Currency</th>
+                            <th class="table-header text-right">Opening (01)</th>
+                            <th class="table-header text-right">Dep (02a)</th>
+                            <th class="table-header text-right">Wit (02b)</th>
+                            <th class="table-header text-right">Txn Principal (03a)</th>
+                            <th class="table-header text-right">Txn Bonus (03b)</th>
+                            <th class="table-header text-right">Adj + (03c)</th>
+                            <th class="table-header text-right">Adj − (03d)</th>
+                            <th class="table-header text-right">Closing (04)</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">
+                          <tr v-for="r in shiftLedgerRows(row)" :key="r.key">
+                            <td class="table-cell text-gray-700">{{ r.type }}</td>
+                            <td class="table-cell text-gray-800">{{ r.label }}</td>
+                            <td class="table-cell font-mono text-gray-500">{{ r.currency }}</td>
+                            <td class="table-cell text-right font-mono">{{ fmtAmt(r.opening, r.currency) }}</td>
+                            <td class="table-cell text-right font-mono text-emerald-600">{{ r.dep > 0 ? '+' + fmtAmt(r.dep, r.currency) : '—' }}</td>
+                            <td class="table-cell text-right font-mono text-orange-600">{{ r.wit > 0 ? '-' + fmtAmt(r.wit, r.currency) : '—' }}</td>
+                            <td class="table-cell text-right font-mono" :class="incomeColor(r.transactionPrincipal)">{{ r.transactionPrincipal !== 0 ? fmtSignedAmt(r.transactionPrincipal, r.currency) : '—' }}</td>
+                            <td class="table-cell text-right font-mono" :class="incomeColor(r.transactionBonus)">{{ r.transactionBonus !== 0 ? fmtSignedAmt(r.transactionBonus, r.currency) : '—' }}</td>
+                            <td class="table-cell text-right font-mono text-emerald-600">{{ r.adjAdd > 0 ? '+' + fmtAmt(r.adjAdd, r.currency) : '—' }}</td>
+                            <td class="table-cell text-right font-mono text-orange-600">{{ r.adjSub > 0 ? '-' + fmtAmt(r.adjSub, r.currency) : '—' }}</td>
+                            <td class="table-cell text-right font-mono font-semibold">{{ fmtAmt(r.closing, r.currency) }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <p v-else-if="shiftLedgerLoading !== row.id" class="text-xs text-gray-400">No ledger entries for this shift.</p>
                     </div>
-                    <table v-if="shiftLedgerRows(row).length" class="w-full text-xs border border-gray-200 rounded overflow-hidden bg-white">
-                      <thead class="bg-gray-50 border-b border-gray-100">
-                        <tr>
-                          <th class="table-header">Type</th>
-                          <th class="table-header">Label</th>
-                          <th class="table-header">Currency</th>
-                          <th class="table-header text-right">Opening (01)</th>
-                          <th class="table-header text-right">Dep (02a)</th>
-                          <th class="table-header text-right">Wit (02b)</th>
-                          <th class="table-header text-right">Txn Principal (03a)</th>
-                          <th class="table-header text-right">Txn Bonus (03b)</th>
-                          <th class="table-header text-right">Adj + (03c)</th>
-                          <th class="table-header text-right">Adj − (03d)</th>
-                          <th class="table-header text-right">Closing (04)</th>
-                        </tr>
-                      </thead>
-                      <tbody class="divide-y divide-gray-50">
-                        <tr v-for="r in shiftLedgerRows(row)" :key="r.key">
-                          <td class="table-cell text-gray-700">{{ r.type }}</td>
-                          <td class="table-cell text-gray-800">{{ r.label }}</td>
-                          <td class="table-cell font-mono text-gray-500">{{ r.currency }}</td>
-                          <td class="table-cell text-right font-mono">{{ fmtAmt(r.opening, r.currency) }}</td>
-                          <td class="table-cell text-right font-mono text-emerald-600">{{ r.dep > 0 ? '+' + fmtAmt(r.dep, r.currency) : '—' }}</td>
-                          <td class="table-cell text-right font-mono text-orange-600">{{ r.wit > 0 ? '-' + fmtAmt(r.wit, r.currency) : '—' }}</td>
-                          <td class="table-cell text-right font-mono" :class="incomeColor(r.transactionPrincipal)">{{ r.transactionPrincipal !== 0 ? fmtSignedAmt(r.transactionPrincipal, r.currency) : '—' }}</td>
-                          <td class="table-cell text-right font-mono" :class="incomeColor(r.transactionBonus)">{{ r.transactionBonus !== 0 ? fmtSignedAmt(r.transactionBonus, r.currency) : '—' }}</td>
-                          <td class="table-cell text-right font-mono text-emerald-600">{{ r.adjAdd > 0 ? '+' + fmtAmt(r.adjAdd, r.currency) : '—' }}</td>
-                          <td class="table-cell text-right font-mono text-orange-600">{{ r.adjSub > 0 ? '-' + fmtAmt(r.adjSub, r.currency) : '—' }}</td>
-                          <td class="table-cell text-right font-mono font-semibold">{{ fmtAmt(r.closing, r.currency) }}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <p v-else-if="shiftLedgerLoading !== row.id" class="text-xs text-gray-400">No ledger entries for this shift.</p>
                   </td>
                 </tr>
               </template>
@@ -357,8 +436,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { PlayIcon, StopIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { PlayIcon, StopIcon, ChevronLeftIcon, ChevronRightIcon, CameraIcon } from '@heroicons/vue/24/outline'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import { startTodayBalance, closeTodayBalance, getTodayBalance, getBalanceHistory, getShiftBalanceTransactions } from '@/api/daily-balances'
 import { getBranches } from '@/api/branches'
@@ -638,6 +717,57 @@ function toggleRow(id) {
   }
   expandedRows.value = next
 }
+
+// ---- Download shift detail as an image -----------------------------
+// Element refs for each expanded row's "receipt" card (see the
+// :ref="el => setDetailRef(row.id, el)" div in the template), keyed by
+// shift id, so downloadShiftImage() can grab exactly the right DOM node
+// to capture — never the whole wide history table.
+const detailRefs = ref({})
+function setDetailRef(id, el) { if (el) detailRefs.value[id] = el }
+
+const downloadingId = ref(null)
+
+async function downloadShiftImage(row) {
+  if (downloadingId.value) return
+  downloadingId.value = row.id
+  try {
+    // Auto-expand the row (and load its ledger) if it isn't already, so a
+    // single click on the camera icon is enough — no need to expand first.
+    if (!expandedRows.value.has(row.id)) toggleRow(row.id)
+    if (!shiftLedgers.value[row.id]) await loadShiftLedger(row.id)
+
+    // Wait for the DOM to actually render the now-expanded row before
+    // capturing — one tick for the v-if to mount, a second so the browser
+    // has painted it (html2canvas reads live layout/computed styles).
+    await nextTick()
+    await nextTick()
+
+    const el = detailRefs.value[row.id]
+    if (!el) { error('Could not find shift detail to capture'); return }
+
+    const { default: html2canvas } = await import('html2canvas')
+    const canvas = await html2canvas(el, {
+      backgroundColor: '#ffffff',
+      scale: 2, // sharper output for a receipt-style image
+      useCORS: true,
+    })
+
+    const dataUrl = canvas.toDataURL('image/png')
+    const dateStr = (row.created_at || '').slice(0, 10) || 'shift'
+    const link = document.createElement('a')
+    link.href = dataUrl
+    link.download = `shift-${dateStr}-${row.id}.png`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  } catch (e) {
+    error('Failed to generate image — is html2canvas installed? (npm install html2canvas)')
+  } finally {
+    downloadingId.value = null
+  }
+}
+
 const meta = ref(null)
 const loadingHistory = ref(false)
 const page = ref(1)
