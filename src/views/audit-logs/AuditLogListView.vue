@@ -25,7 +25,7 @@
         <label class="label text-xs">User</label>
         <SearchableSelect v-model="filters.user_id" :options="users" placeholder="All users" all-label="All users" @update:modelValue="reload" />
       </div>
-      <div class="w-44">
+      <div v-if="branches.length > 1" class="w-44">
         <label class="label text-xs">Branch</label>
         <SearchableSelect v-model="filters.branch_id" :options="branches" placeholder="All branches" all-label="All branches" @update:modelValue="reload" />
       </div>
@@ -80,7 +80,7 @@
                   </button>
                 </td>
                 <td class="table-cell text-sm text-gray-600 whitespace-nowrap">{{ fmtDate(row.created_at) }}</td>
-                <td class="table-cell text-sm text-gray-800">{{ row.user?.email || '—' }}</td>
+                <td class="table-cell text-sm text-gray-800">{{ row.user?.name || '—' }}</td>
                 <td class="table-cell text-sm text-gray-600">{{ row.branch?.name || '—' }}</td>
                 <td class="table-cell">
                   <span :class="['badge', methodBadge(row.method)]">{{ row.method }}</span>
@@ -210,7 +210,13 @@ function reload()          { page.value = 1; load() }
 function goPage(p)          { page.value = p; load() }
 function onPageSizeChange() { page.value = 1; load() }
 function resetFilters() {
-  filters.value = { date_from: '', date_to: '', user_id: null, branch_id: null, method: null, search: '' }
+  filters.value = {
+    date_from: '', date_to: '', user_id: null, method: null, search: '',
+    // Keep the single-branch default — the filter is hidden in that case
+    // (see the v-if above), so clearing it here would leave no way to
+    // set it back.
+    branch_id: branches.value.length === 1 ? branches.value[0].id : null,
+  }
   reload()
 }
 
@@ -237,7 +243,6 @@ async function doDelete() {
 }
 
 onMounted(async () => {
-  load()
   try {
     const res = await getUsersInScope()
     users.value = (res.data || []).map(u => ({ id: u.id, name: u.name, sub: u.email }))
@@ -245,6 +250,13 @@ onMounted(async () => {
   try {
     const res = await getBranches({ show_all: false })
     branches.value = (res.data || []).map(b => ({ id: b.id, name: b.name, sub: b.code }))
+    // Only one branch in scope — select it by default and hide the
+    // filter entirely (see the v-if on the Branch filter above), since
+    // there's nothing meaningful to choose between.
+    if (branches.value.length === 1) {
+      filters.value.branch_id = branches.value[0].id
+    }
   } catch {}
+  load()
 })
 </script>
