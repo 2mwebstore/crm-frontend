@@ -36,7 +36,7 @@ onMounted(() => {
     // installDevToolsGuard()
   // }
 
-  refreshInterval = setInterval(silentRefresh, 1 * 30 * 1000) // every 2 minutes
+  refreshInterval = setInterval(silentRefresh, 2 * 30 * 1000) // every 2 minutes
   document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
