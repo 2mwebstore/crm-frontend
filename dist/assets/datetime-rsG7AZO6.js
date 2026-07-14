@@ -1,1 +1,0 @@
-function n(t){return String(t).padStart(2,"0")}function u(){const t=new Date(Date.now()+252e5);return{y:t.getUTCFullYear(),mo:t.getUTCMonth(),d:t.getUTCDate(),h:t.getUTCHours(),mi:t.getUTCMinutes(),s:t.getUTCSeconds()}}function c(){const{y:t,mo:e,d:o,h:r,mi:a,s}=u();return`${t}-${n(e+1)}-${n(o)} ${n(r)}:${n(a)}:${n(s)}`}export{c as n,n as p};
