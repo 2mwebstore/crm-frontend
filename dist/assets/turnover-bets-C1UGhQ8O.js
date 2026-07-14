@@ -1,0 +1,1 @@
+import{G as t}from"./index-DQB31BAq.js";const s=e=>t.get("/turnover-bets",{params:e}),n=e=>t.post("/turnover-bets",e),u=(e,r)=>t.put(`/turnover-bets/${e}`,r),a=e=>t.delete(`/turnover-bets/${e}`),v=(e,r)=>t.put(`/turnover-bets/${e}/approve`,r);export{v as a,n as c,a as d,s as g,u};

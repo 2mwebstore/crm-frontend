@@ -1,0 +1,1 @@
+import{G as a}from"./index-DQB31BAq.js";const t=e=>a.get("/branches",{params:e}),n=e=>a.post("/branches",e),r=(e,s)=>a.put(`/branches/${e}`,s),h=e=>a.delete(`/branches/${e}`);export{n as c,h as d,t as g,r as u};

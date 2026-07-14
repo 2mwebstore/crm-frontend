@@ -80,7 +80,7 @@
                   </button>
                 </td>
                 <td class="table-cell text-sm text-gray-600 whitespace-nowrap">{{ fmtDate(row.created_at) }}</td>
-                <td class="table-cell text-sm text-gray-800">{{ row.user?.name || '—' }}</td>
+                <td class="table-cell text-sm text-gray-800">{{ row.user?.email || '—' }}</td>
                 <td class="table-cell text-sm text-gray-600">{{ row.branch?.name || '—' }}</td>
                 <td class="table-cell">
                   <span :class="['badge', methodBadge(row.method)]">{{ row.method }}</span>
