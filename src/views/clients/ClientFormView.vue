@@ -145,7 +145,7 @@
                 :disabled="!productPrefix(pr)"
                 maxlength="3"
                 required
-                @input="pr.account_suffix = pr.account_suffix.replace(/[^0-9]/g,'').slice(0,3); pr.account_id = productPrefix(pr) + pr.account_suffix"
+                @input="pr.account_suffix = pr.account_suffix.replace(/[^a-zA-Z0-9]/g, '').slice(0,3); pr.account_id = productPrefix(pr) + pr.account_suffix"
               />
             </div>
             <p v-if="isDuplicateRow(pr)" class="text-xs text-red-500 mt-0.5">Duplicate account ID: {{ pr.account_id }}</p>
