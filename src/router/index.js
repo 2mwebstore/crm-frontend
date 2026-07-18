@@ -43,6 +43,7 @@ const router = createRouter({
         { path: 'hub/account', name: 'AccountHub', component: () => import('@/views/hub/AccountHubView.vue') },
         { path: 'hub/reports', name: 'ReportsHub', component: () => import('@/views/hub/ReportsHubView.vue') },
         { path: 'hub/setup',   name: 'SetupHub',   component: () => import('@/views/hub/SetupHubView.vue') },
+        { path: 'hub/attendance', name: 'AttendanceHub', component: () => import('@/views/hub/AttendanceHubView.vue') },
 
         // Interesting Clients
         { path: 'interesting-clients',          name: 'InterestingClients', component: () => import('@/views/interesting-clients/ICListView.vue'),   meta: { perms: ['interesting_clients.view'] } },
