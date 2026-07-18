@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <!-- Header with button -->
-    <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center justify-between">
       <div>
         <h1 class="text-xl font-semibold text-gray-800">User Management</h1>
         <p class="text-sm text-gray-500 mt-0.5">
@@ -154,6 +154,29 @@
             />
           </div>
 
+          <div>
+            <label class="label">Shift Type</label>
+            <div class="flex gap-1">
+              <button
+                v-for="t in shiftTypes" :key="t.id"
+                type="button"
+                @click="adminForm.shift_type = t.id"
+                :class="['btn-secondary btn-sm flex-1', adminForm.shift_type === t.id ? '!bg-primary-600 !text-white hover:!bg-primary-700' : '']"
+              >{{ t.name }}</button>
+            </div>
+            <p v-if="adminForm.shift_type === 'cross_day'" class="text-xs text-gray-400 mt-1">Night Shift — check-in and check-out can fall on different calendar dates; duplicate-date checks on Leave/Overtime requests are relaxed for this user.</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label">Shift In Time</label>
+              <TimePicker v-model="adminForm.shift_check_in_time" placeholder="Check-in time" class="w-full" />
+            </div>
+            <div>
+              <label class="label">Shift Out Time</label>
+              <TimePicker v-model="adminForm.shift_check_out_time" placeholder="Check-out time" class="w-full" />
+            </div>
+          </div>
 
           <div v-if="adminEditing" class="flex items-center gap-2 text-sm">
             <input type="checkbox" v-model="adminForm.is_active" class="accent-primary" />
@@ -291,6 +314,30 @@
             <SearchableSelect v-model="form.role_id" :options="roles" placeholder="Select a role" />
           </div>
 
+          <div>
+            <label class="label">Shift Type</label>
+            <div class="flex gap-1">
+              <button
+                v-for="t in shiftTypes" :key="t.id"
+                type="button"
+                @click="form.shift_type = t.id"
+                :class="['btn-secondary btn-sm flex-1', form.shift_type === t.id ? '!bg-primary-600 !text-white hover:!bg-primary-700' : '']"
+              >{{ t.name }}</button>
+            </div>
+            <p v-if="form.shift_type === 'cross_day'" class="text-xs text-gray-400 mt-1">Night Shift — check-in and check-out can fall on different calendar dates; duplicate-date checks on Leave/Overtime requests are relaxed for this user.</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label">Shift In Time</label>
+              <TimePicker v-model="form.shift_check_in_time" placeholder="Check-in time" class="w-full" />
+            </div>
+            <div>
+              <label class="label">Shift Out Time</label>
+              <TimePicker v-model="form.shift_check_out_time" placeholder="Check-out time" class="w-full" />
+            </div>
+          </div>
+
           <div v-if="editing" class="flex items-center gap-2 text-sm">
             <input type="checkbox" v-model="form.is_active" class="accent-primary" />
             <span>Active</span>
@@ -334,6 +381,7 @@ import AppModal from '@/components/common/AppModal.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import PageSizeSelect from '@/components/common/PageSizeSelect.vue'
+import TimePicker from '@/components/ui/TimePicker.vue'
 import { useAuthStore } from '@/stores/auth'
 import { adminListUsers, adminCreateUser, adminUpdateUser, adminDeleteUser, getSubUsers, createSubUser, updateSubUser, deleteSubUser } from '@/api/users'
 import { getRolesForAssignment } from '@/api/roles'
@@ -475,14 +523,18 @@ const adminModal        = ref(false)
 const adminEditing      = ref(null)
 const adminDeleteTarget = ref(null)
 const adminDeleteDialog = ref(false)
-const adminForm = ref({ name: '', email: '', password: '', role_id: null, parent_id: null, is_active: true, branch_ids: [] })
+const shiftTypes = [
+  { id: 'normal', name: 'Normal Day' },
+  { id: 'cross_day', name: 'Cross Day (Night Shift)' },
+]
+const adminForm = ref({ name: '', email: '', password: '', role_id: null, parent_id: null, is_active: true, branch_ids: [], shift_check_in_time: '08:00', shift_check_out_time: '17:00', shift_type: 'normal' })
 
 // Sub-user modal
 const modal        = ref(false)
 const editing      = ref(null)
 const deleteTarget = ref(null)
 const deleteDialog = ref(false)
-const form = ref({ name: '', email: '', password: '', role_id: null, branch_ids: [], is_active: true })
+const form = ref({ name: '', email: '', password: '', role_id: null, branch_ids: [], is_active: true, shift_check_in_time: '08:00', shift_check_out_time: '17:00', shift_type: 'normal' })
 
 const rootUsers       = computed(() => allUsers.value.filter(u => !u.is_super_admin))
 
@@ -541,7 +593,7 @@ async function load() {
 }
 
 function openAdminCreate() {
-  adminForm.value = { name: '', email: '', password: '', role_id: null, parent_id: null, is_active: true, branch_ids: [] }
+  adminForm.value = { name: '', email: '', password: '', role_id: null, parent_id: null, is_active: true, branch_ids: [], shift_check_in_time: '08:00', shift_check_out_time: '17:00', shift_type: 'normal' }
   branchToAdd.value = null
   adminEditing.value = null
   adminModal.value = true
@@ -552,7 +604,10 @@ function openAdminEdit(row) {
     name: row.name, password: '', role_id: row.role_id || null,
     parent_id: row.parent_id || null,
     is_active: row.is_active, _id: row.id,
-    branch_ids: (row.branches || []).map(b => b.id)
+    branch_ids: (row.branches || []).map(b => b.id),
+    shift_check_in_time: row.shift_check_in_time || '',
+    shift_check_out_time: row.shift_check_out_time || '',
+    shift_type: row.shift_type || 'normal',
   }
   branchToAdd.value = null
   adminEditing.value = row
@@ -571,6 +626,8 @@ async function handleAdminSave() {
       parent_id: adminForm.value.parent_id ?? 0, // 0 = make root user
     }
     if (!payload.password) delete payload.password
+    payload.shift_check_in_time = payload.shift_check_in_time || null
+    payload.shift_check_out_time = payload.shift_check_out_time || null
     if (adminEditing.value) { await adminUpdateUser(adminEditing.value.id, payload); success('User updated') }
     else                    { await adminCreateUser(payload);                         success('User created') }
     adminModal.value = false; load()
@@ -583,7 +640,7 @@ async function doAdminDelete() {
 }
 
 function openCreate() {
-  form.value = { name: '', email: '', password: '', role_id: null, branch_ids: [], is_active: true }
+  form.value = { name: '', email: '', password: '', role_id: null, branch_ids: [], is_active: true, shift_check_in_time: '08:00', shift_check_out_time: '17:00', shift_type: 'normal' }
   subBranchToAdd.value = null
   editing.value = null; modal.value = true
 }
@@ -592,6 +649,9 @@ function openEdit(row) {
     name: row.name, password: '', role_id: row.role_id || null,
     branch_ids: (row.branches || []).map(b => b.id),
     is_active: row.is_active,
+    shift_check_in_time: row.shift_check_in_time || '',
+    shift_check_out_time: row.shift_check_out_time || '',
+    shift_type: row.shift_type || 'normal',
   }
   subBranchToAdd.value = null
   editing.value = row; modal.value = true
@@ -604,6 +664,8 @@ async function handleSave() {
  
     const payload = { ...form.value, branch_ids: form.value.branch_ids || [] }
     if (!payload.password) delete payload.password
+    payload.shift_check_in_time = payload.shift_check_in_time || null
+    payload.shift_check_out_time = payload.shift_check_out_time || null
     if (editing.value) { await updateSubUser(editing.value.id, payload); success('Updated') }
     else               { await createSubUser(payload);                    success('Sub user created') }
     modal.value = false; load()

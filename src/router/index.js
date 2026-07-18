@@ -19,6 +19,23 @@ const router = createRouter({
         { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/dashboard/DashboardView.vue') },
         { path: 'daily-balance', name: 'DailyBalance', component: () => import('@/views/dashboard/DailyBalanceView.vue'), meta: { perms: ['daily_balance.view', 'daily_balance.start', 'daily_balance.close'] } },
         { path: 'audit-logs', name: 'AuditLogs', component: () => import('@/views/audit-logs/AuditLogListView.vue'), meta: { perms: ['audit_logs.view'] } },
+        { path: 'attendance/my', name: 'MyAttendance', component: () => import('@/views/attendance/MyAttendanceView.vue') },
+        { path: 'leave/list', name: 'LeaveList', component: () => import('@/views/leave/LeaveListView.vue'), meta: { perms: ['leave_requests.view', 'leave_requests.approve'] } },
+        { path: 'leave/report', name: 'LeaveReport', component: () => import('@/views/leave/LeaveReportView.vue'), meta: { perms: ['leave_requests.view', 'leave_requests.approve'] } },
+        { path: 'leave/request', name: 'LeaveRequest', component: () => import('@/views/leave/LeaveRequestView.vue') },
+        { path: 'leave/types',   name: 'LeaveTypes',   component: () => import('@/views/leave/LeaveTypesView.vue'),   meta: { perms: ['leave_types.view'] } },
+      
+        { path: 'overtime/list', name: 'OvertimeList', component: () => import('@/views/overtime/OvertimeListView.vue'), meta: { perms: ['overtime_requests.view', 'overtime_requests.approve'] } },
+        { path: 'overtime/report', name: 'OvertimeReport', component: () => import('@/views/overtime/OvertimeReportView.vue'), meta: { perms: ['overtime_requests.view', 'overtime_requests.approve'] } },
+        { path: 'overtime/request', name: 'OvertimeRequest', component: () => import('@/views/overtime/OvertimeRequestView.vue') },
+        { path: 'activity/list', name: 'ActivityList', component: () => import('@/views/activity/ActivityListView.vue'), meta: { perms: ['activity_requests.view'] } },
+        { path: 'activity/report', name: 'ActivityReport', component: () => import('@/views/activity/ActivityReportView.vue'), meta: { perms: ['activity_requests.view'] } },
+        { path: 'activity/request', name: 'ActivityRequest', component: () => import('@/views/activity/ActivityrequestView.vue') },
+        { path: 'attendance/list', name: 'AttendanceList', component: () => import('@/views/attendance/AttendanceListView.vue'), meta: { perms: ['attendance.view'] } },
+        { path: 'attendance/report', name: 'AttendanceReport', component: () => import('@/views/attendance/AttendanceReportView.vue'), meta: { perms: ['attendance.view'] } },
+        { path: 'attendance/summary', name: 'AttendanceSummary', component: () => import('@/views/attendance/AttendanceSummaryView.vue'), meta: { perms: ['attendance.view'] } },
+       
+        { path: 'schedule-overrides', name: 'ScheduleOverrides', component: () => import('@/views/attendance/ScheduleOverridesView.vue'), meta: { perms: ['schedule_overrides.view', 'schedule_overrides.create', 'schedule_overrides.edit', 'schedule_overrides.delete'] } },
         // Hub pages (mobile bottom-tab landing pages). Purely navigational —
         // each links into the existing routes below, so nothing here
         // duplicates or changes any existing page's logic.

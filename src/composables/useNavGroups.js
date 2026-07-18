@@ -3,7 +3,8 @@ import {
   HomeIcon, StarIcon, UserGroupIcon, UsersIcon, ShieldCheckIcon,
   TagIcon, Squares2X2Icon, BanknotesIcon, ArrowDownTrayIcon, ArrowUpTrayIcon,
   ChartBarIcon, CurrencyDollarIcon, CalendarDaysIcon,
-  BuildingOfficeIcon, BuildingLibraryIcon, ClipboardDocumentListIcon
+  BuildingOfficeIcon, BuildingLibraryIcon, ClipboardDocumentListIcon,
+  MapPinIcon, ClockIcon
 } from '@heroicons/vue/24/outline'
 import { useAuthStore } from '@/stores/auth'
 
@@ -49,6 +50,60 @@ export function useNavGroups() {
       ]
     },
     {
+      label: 'Attendance', icon: MapPinIcon,
+      items: [
+        {
+          label: 'Attendance', icon: MapPinIcon,
+          children: [
+            // "My Attendance" now requires attendance.request — a
+            // sibling to attendance.view/attendance.edit, not a
+            // prerequisite for them. A user with none of the three sees
+            // nothing under this Attendance sub-group (and, via the
+            // existing visibleGroups collapse, nothing under the wider
+            // Attendance section either, once Leave/Overtime/Activity
+            // are similarly absent for them).
+            { to: '/attendance/my', label: 'My Attendance', icon: MapPinIcon, show: isSA.value || auth.can('attendance.request') },
+            { to: '/attendance/list', label: 'List Attendance', icon: ClockIcon, show: isSA.value || auth.can('attendance.view') },
+          ],
+        },
+
+        {
+          label: 'Leave', icon: CalendarDaysIcon,
+          children: [
+            { to: '/leave/list', label: 'List Leave', show: isSA.value || auth.canAny('leave_requests.view', 'leave_requests.approve') },
+            { to: '/leave/request', label: 'Leave Request', show: isSA.value || auth.can('leave_requests.request') },
+            { to: '/leave/types',     label: 'Leave Types',     icon: TagIcon,             show: isSA.value || auth.can('leave_types.view') },
+          ],
+        },
+        {
+          label: 'Overtime', icon: ClockIcon,
+          children: [
+            { to: '/overtime/list', label: 'List Overtime', show: isSA.value || auth.canAny('overtime_requests.view', 'overtime_requests.approve') },
+            { to: '/overtime/request', label: 'Overtime Request', show: isSA.value || auth.can('overtime_requests.request') },
+          ],
+        },
+        {
+          label: 'Activity', icon: MapPinIcon,
+          children: [
+            { to: '/activity/list', label: 'List Activity', show: isSA.value || auth.can('activity_requests.view') },
+            { to: '/activity/request', label: 'Activity Request', show: isSA.value || auth.can('activity_requests.request') },
+          ],
+        },
+        {
+          label: 'Report', icon: ChartBarIcon,
+          children: [
+            { to: '/attendance/report', label: 'Report Attendance', show: isSA.value || auth.can('attendance_reports.view') },
+            { to: '/attendance/summary', label: 'Attendance Detail', show: isSA.value || auth.can('attendance_reports.view') },
+            { to: '/leave/report', label: 'Report Leave', show: isSA.value || auth.can('attendance_reports.view') },
+            { to: '/overtime/report', label: 'Report Overtime', show: isSA.value || auth.can('attendance_reports.view') },
+            { to: '/activity/report', label: 'Report Activity', show: isSA.value || auth.can('attendance_reports.view') },
+          ],
+        },
+        { to: '/schedule-overrides', label: 'Schedule Overrides', icon: ClockIcon, show: isSA.value || auth.canAny('schedule_overrides.view', 'schedule_overrides.create', 'schedule_overrides.edit', 'schedule_overrides.delete') },
+
+      ]
+    },
+    {
       label: 'Configuration',
       items: [
         { to: '/lookup/levels',          label: 'Levels',          icon: TagIcon,             show: isSA.value || auth.can('levels.view') },
@@ -64,7 +119,12 @@ export function useNavGroups() {
 
   const visibleGroups = computed(() =>
     groups.value
-      .map(g => ({ ...g, items: g.items.filter(i => i.show) }))
+      .map(g => ({
+        ...g,
+        items: g.items
+          .map(i => i.children ? { ...i, children: i.children.filter(c => c.show) } : i)
+          .filter(i => i.children ? i.children.length > 0 : i.show)
+      }))
       .filter(g => g.items.length > 0)
   )
 

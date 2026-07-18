@@ -116,6 +116,27 @@
             <p class="text-xs text-gray-400">Same group for both — leave a Topic ID blank to post that type to the group's General topic instead of a specific thread.</p>
           </div>
         </div>
+
+        <div class="pt-2 border-t border-gray-100">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Staff Attendance</p>
+          <p class="text-xs text-gray-400 mb-3">Where check-in/check-out distance is measured from. Leave blank to skip distance validation (not recommended).</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label">Latitude, Longitude</label>
+              <input
+                v-model="latLngInput"
+                @blur="applyLatLng"
+                class="input font-mono"
+                placeholder="e.g. 11.555571409845054, 104.8928642162345"
+              />
+              <p class="text-xs text-gray-400 mt-1">Paste directly from Google Maps (right-click a point → click the coordinates to copy).</p>
+            </div>
+            <div>
+              <label class="label">Radius (meters)</label>
+              <input v-model.number="form.check_in_radius_meters" type="number" class="input font-mono" placeholder="200" />
+            </div>
+          </div>
+        </div>
         <div v-if="editing" class="flex items-center gap-2 text-sm">
           <input type="checkbox" v-model="form.is_active" class="accent-primary w-4 h-4" />
           <span>Active</span>
@@ -166,8 +187,25 @@ const defaultForm = () => ({
   name: '', code: '', description: '', is_active: true,
   telegram_bot_token: '', telegram_chat_id: '',
   telegram_deposit_topic_id: null, telegram_withdrawal_topic_id: null,
+  latitude: null, longitude: null, check_in_radius_meters: 200,
 })
 const form = ref(defaultForm())
+
+// The single "Latitude, Longitude" field is just a convenience input for
+// pasting Google Maps' own copy-paste format — form.latitude/longitude
+// stay the real source of truth (what's actually sent to the backend).
+// Parsed on blur rather than every keystroke, so a half-typed value
+// doesn't get rejected mid-entry.
+const latLngInput = ref('')
+function applyLatLng() {
+  const parts = latLngInput.value.split(',').map(s => s.trim())
+  if (parts.length !== 2) return
+  const lat = Number(parts[0])
+  const lng = Number(parts[1])
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return
+  form.value.latitude = lat
+  form.value.longitude = lng
+}
 
 async function load() {
   loading.value = true
@@ -192,7 +230,7 @@ function applyFilter() { page.value = 1;
 }
 function resetFilters() { search.value = ''; statusFilter.value = null; page.value = 1; applyFilter() }
 
-function openCreate() { editing.value = null; form.value = defaultForm(); modal.value = true }
+function openCreate() { editing.value = null; form.value = defaultForm(); latLngInput.value = ''; modal.value = true }
 function openEdit(row) {
   editing.value = row
   form.value = {
@@ -201,26 +239,37 @@ function openEdit(row) {
     telegram_chat_id: row.telegram_chat_id || '',
     telegram_deposit_topic_id: row.telegram_deposit_topic_id ?? null,
     telegram_withdrawal_topic_id: row.telegram_withdrawal_topic_id ?? null,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
+    check_in_radius_meters: row.check_in_radius_meters || 200,
   }
+  latLngInput.value = (row.latitude != null && row.longitude != null) ? `${row.latitude}, ${row.longitude}` : ''
   modal.value = true
 }
 
 async function handleSave() {
+  applyLatLng()
   if (!form.value.name || !form.value.code) { error('Name and Code are required'); return }
   form.value.code = form.value.code.toUpperCase().replace(/[^A-Z0-9]/g, '')
   saving.value = true
   try {
     // Most branches don't use Telegram forum topics — an empty Topic ID
     // input stays as '' (v-model.number doesn't coerce a blank field),
-    // and Go's *int can't unmarshal an empty string at all, so this must
-    // become an actual null rather than being sent as-is.
+    // and Go's *int/*float64 can't unmarshal an empty string at all, so
+    // this must become an actual null rather than being sent as-is. Same
+    // issue applies to latitude/longitude (also *float64 on the backend).
     const payload = { ...form.value }
-    for (const key of ['telegram_deposit_topic_id', 'telegram_withdrawal_topic_id']) {
+    for (const key of ['telegram_deposit_topic_id', 'telegram_withdrawal_topic_id', 'latitude', 'longitude']) {
       payload[key] = payload[key] === '' || payload[key] === null || payload[key] === undefined
         ? null
         : Number(payload[key])
       if (Number.isNaN(payload[key])) payload[key] = null
     }
+    // check_in_radius_meters is a plain (non-pointer) int on the backend
+    // with its own default — an empty string here isn't valid JSON for an
+    // int at all, so fall back to the same 200m default rather than
+    // sending something that would fail to bind.
+    payload.check_in_radius_meters = Number(payload.check_in_radius_meters) || 200
 
     if (editing.value) {
       await updateBranch(editing.value.id, payload); success('Branch updated')

@@ -156,7 +156,12 @@
           </div>
 
           <div class="border border-gray-200 rounded-xl overflow-hidden max-h-96 overflow-y-auto">
-            <div v-for="{ group, perms } in orderedGroups" :key="group" class="border-b border-gray-100 last:border-b-0">
+            <div v-for="section in sections" :key="section.key">
+              <!-- Section header (CRM / Management Attendance) -->
+              <div class="px-4 py-2 bg-gray-100 border-b border-gray-200 sticky top-0 z-10">
+                <span class="text-xs font-bold text-gray-700 uppercase tracking-wider">{{ section.label }}</span>
+              </div>
+              <div v-for="{ group, perms } in section.groups" :key="group" class="border-b border-gray-100 last:border-b-0">
               <!-- Group header -->
               <div class="flex items-center justify-between px-4 py-2 bg-gray-50 sticky top-0">
                 <div class="flex items-center gap-2">
@@ -181,6 +186,7 @@
                     <p v-if="p.description" class="text-gray-400 mt-0.5 leading-tight">{{ p.description }}</p>
                   </div>
                 </label>
+              </div>
               </div>
             </div>
           </div>
@@ -287,8 +293,18 @@ const GROUP_ORDER = [
   'deposits', 'withdrawals', 'turnover_bets', 'follow_ups', 'reports',
   'users', 'roles', 'branch',
   'levels', 'contact_sources', 'bank_types', 'company_banks', 'product_types', 'bonus_options', 'currencies',
+  'audit_logs',
   'lookup', 'configuration', 'phone',
 ]
+
+// Groups belonging to the "Management Attendance" section — everything
+// else in GROUP_ORDER (plus any unrecognized/unknown group) falls under
+// "CRM" instead.
+const ATTENDANCE_GROUPS = [
+  'attendance', 'leave_requests', 'leave_types', 'overtime_requests', 'activity_requests', 'schedule_overrides',
+]
+
+const SECTION_LABELS = { crm: 'CRM', attendance_mgmt: 'Management Attendance' }
 
 const GROUP_LABELS = {
   interesting_clients: 'Interesting Clients',
@@ -302,6 +318,13 @@ const GROUP_LABELS = {
   product_types: 'Product Types',
   bonus_options: 'Bonus Options',
   currencies: 'Currencies',
+  attendance: 'Attendance',
+  leave_requests: 'Leave',
+  leave_types: 'Leave Types',
+  overtime_requests: 'Overtime',
+  activity_requests: 'Activity',
+  schedule_overrides: 'Schedule Overrides',
+  audit_logs: 'Audit Log',
   lookup: 'Lookup (General)',
   configuration: 'Configuration',
   phone: 'Phone Numbers',
@@ -312,11 +335,29 @@ function groupLabel(g) {
   return g.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
+// All known groups (CRM + Attendance), ordered within each, followed by
+// any unrecognized group (sorted, filed under CRM as a catch-all).
 const orderedGroups = computed(() => {
   const keys = Object.keys(grouped.value)
   const known = GROUP_ORDER.filter(g => keys.includes(g))
   const unknown = keys.filter(g => !GROUP_ORDER.includes(g)).sort()
   return [...known, ...unknown].map(group => ({ group, perms: grouped.value[group] }))
+})
+
+// orderedGroups split into the two top-level sections for rendering —
+// each section only appears if it actually has at least one group with
+// permissions loaded.
+const sections = computed(() => {
+  const crm = []
+  const attendanceMgmt = []
+  for (const entry of orderedGroups.value) {
+    if (ATTENDANCE_GROUPS.includes(entry.group)) attendanceMgmt.push(entry)
+    else crm.push(entry)
+  }
+  const out = []
+  if (crm.length) out.push({ key: 'crm', label: SECTION_LABELS.crm, groups: crm })
+  if (attendanceMgmt.length) out.push({ key: 'attendance_mgmt', label: SECTION_LABELS.attendance_mgmt, groups: attendanceMgmt })
+  return out
 })
 
 const totalPerms = computed(() =>

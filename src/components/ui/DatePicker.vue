@@ -44,12 +44,12 @@
         <div class="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2 justify-center">
           <input
             type="number" min="1" max="12" v-model.number="hour"
-            class="input w-14 text-center text-sm" @change="emitVal"
+            class="input w-18 text-center text-sm" @change="emitVal"
           />
           <span class="text-gray-400 font-bold">:</span>
           <input
             type="number" min="0" max="59" v-model.number="minute"
-            class="input w-14 text-center text-sm" @change="emitVal"
+            class="input w-18 text-center text-sm" @change="emitVal"
           />
           <select v-model="ampm" class="input w-16 text-sm" @change="emitVal">
             <option>AM</option>

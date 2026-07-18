@@ -81,3 +81,43 @@ export function fromDatetimeInputValue(val) {
   if (!val) return ''
   return val.replace('T', ' ') + ':00'
 }
+
+/**
+ * Formats an API date/datetime value as "DD-MM-YYYY HH:MM:SS AM/PM" — the
+ * shared display format used across attendance/leave/overtime/outdoor
+ * views (previously duplicated inline in each one).
+ */
+export function fmtDatetime(d) {
+  if (!d) return '—'
+  const dt = new Date(d)
+  return dt.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-') +
+    ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+}
+
+export function fmtDate(d) {
+  if (!d) return '—'
+
+  const dt = new Date(d)
+
+  const day = String(dt.getDate()).padStart(2, '0')
+  const month = String(dt.getMonth() + 1).padStart(2, '0')
+  const year = dt.getFullYear()
+
+  return `${day}-${month}-${year}`
+}
+export function fmtTime(time) {
+  if (!time) return '—'
+
+  const [hour, minute] = time.split(':').map(Number)
+
+  const period = hour >= 12 ? 'PM' : 'AM'
+  const h12 = hour % 12 || 12
+
+  return `${String(h12).padStart(2, '0')}:${String(minute).padStart(2, '0')} ${period}`
+}
+
+export function fmtDateMonth(d) {
+  if (!d) return '—'
+  const dt = new Date(d)
+  return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+}
