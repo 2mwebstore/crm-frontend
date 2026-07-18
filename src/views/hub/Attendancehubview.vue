@@ -120,6 +120,7 @@ const allManageTiles = computed(() => [
 ])
 const manageTiles = computed(() => allManageTiles.value.filter(t => t.show))
 
+
 // "Reports" — all five gated by the single unified attendance_reports.view
 // permission, separate from each feature's own View permission above.
 const allReportTiles = computed(() => [
