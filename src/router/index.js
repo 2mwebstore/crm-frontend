@@ -100,13 +100,16 @@ const router = createRouter({
   ]
 })
 
+
+
+
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (to.meta.public) return true
   if (!auth.isLoggedIn) return '/login'
   if (!auth.user) await auth.fetchMe()
 
-  // Super Admin only routes
+  // Super Admin only routes 
   if (to.meta.superAdminOnly && !auth.isSuperAdmin) return '/dashboard'
 
   // Super Admin bypasses all other permission checks

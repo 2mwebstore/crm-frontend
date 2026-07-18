@@ -136,6 +136,9 @@ const currentSection = computed(() => {
   return path ? path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ') : 'Dashboard'
 })
 
+
+
+
 // Maps each list page that's reached via a hub tile back to that hub, so
 // mobile users (who don't have the sidebar) have a way back. Only the
 // exact list-root paths are included — detail/create/edit sub-pages
