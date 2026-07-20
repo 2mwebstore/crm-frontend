@@ -33,14 +33,11 @@
           <label class="label">Client <span class="text-red-500">*</span></label>
           <SearchableSelect
             v-model="form.client_id"
-            :options="clientOptions"
+            :search-fn="branchId ? searchClients : null"
             :placeholder="branchId ? 'Search and select client…' : 'Select a branch first…'"
             :show-all="false"
             :disabled="isEdit || !branchId"
           />
-          <p v-if="branchId && !clientOptions.length && !loadingClients" class="text-xs text-amber-600 mt-1">
-            No clients found for this branch.
-          </p>
         </div>
 
         <div>
@@ -193,7 +190,6 @@ const auth   = useAuthStore()
 // super admin or has the {type}s.edit permission (e.g. "deposits.edit" /
 // "withdrawals.edit").
 const canEditTransactionNo = computed(() => auth.isSuperAdmin || auth.can(`${props.type}s.edit`))
-const clients          = ref([])
 const clientBanks      = ref([])
 const clientProducts   = ref([])
 const companyBanks        = ref([])
@@ -207,10 +203,6 @@ const form = computed({
   get: () => props.modelValue,
   set: (v) => emit('update:modelValue', v)
 })
-
-const clientOptions = computed(() =>
-  clients.value.map(c => ({ id: c.id, name: c.name, sub: c.code }))
-)
 
 const productOptions = computed(() => {
   const list = clientProducts.value.length > 0
@@ -363,19 +355,33 @@ async function loadBonusOptions(branchId = null) {
   } catch {} finally { loadingBonusOptions.value = false }
 }
 
-async function loadClients(branchId = null) {
-  if (!branchId) {
-    clients.value = []
-    return
-  }
+// Only checks whether this branch has EXACTLY one client, to preserve the
+// auto-select-if-only-one-client convenience — deliberately NOT loading
+// the full client list anymore (that's what searchClients below is for,
+// queried live per-keystroke instead of preloaded).
+async function autoSelectSoleClient(branchId = null) {
+  if (!branchId || props.isEdit) return
   loadingClients.value = true
   try {
-    const res = await getClients({ page: 1, page_size: 500, is_active: true, branch_id: branchId })
-    clients.value = res.data || []
-    if (!props.isEdit && clients.value.length === 1) {
-      form.value.client_id = clients.value[0].id
+    const res = await getClients({ page: 1, page_size: 2, is_active: true, branch_id: branchId })
+    if ((res.meta?.total_items ?? res.data?.length) === 1) {
+      form.value.client_id = res.data[0].id
     }
   } catch {} finally { loadingClients.value = false }
+}
+
+// Server-side search for the Client field — replaces a static preloaded
+// list (which silently couldn't reach any client beyond whatever fit in
+// one preloaded page) with an actual API query per keystroke, scoped to
+// the currently selected branch.
+async function searchClients(query) {
+  if (!props.branchId) return []
+  try {
+    const res = await getClients({ search: query, page: 1, page_size: 20, is_active: true, branch_id: props.branchId })
+    return (res.data || []).map(c => ({ id: c.id, name: c.name, sub: c.code }))
+  } catch {
+    return []
+  }
 }
 
 async function loadClientData(clientId, resetSelections = true) {
@@ -425,12 +431,12 @@ watch(() => props.branchId, async (bid) => {
     clientBanks.value    = []
     clientProducts.value = []
   }
-  await Promise.all([loadClients(bid), loadCompanyBanks(bid), loadBonusOptions(bid)])
+  await Promise.all([autoSelectSoleClient(bid), loadCompanyBanks(bid), loadBonusOptions(bid)])
 })
 
 onMounted(async () => {
   await lookup.loadAll()
-  await Promise.all([loadClients(props.branchId), loadCompanyBanks(props.branchId), loadBonusOptions(props.branchId)])
+  await Promise.all([autoSelectSoleClient(props.branchId), loadCompanyBanks(props.branchId), loadBonusOptions(props.branchId)])
   if (props.isEdit && form.value.client_id) await loadClientData(form.value.client_id, false)
 })
 </script>
