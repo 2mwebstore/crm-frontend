@@ -45,6 +45,7 @@
             <input
               ref="searchRef"
               v-model="query"
+              @input="onQueryInput"
               class="bg-transparent outline-none text-sm flex-1 text-gray-800"
               :placeholder="`Search…`"
             />
@@ -56,7 +57,11 @@
 
         <!-- Options -->
         <div class="overflow-y-auto" style="max-height:220px">
-          <div v-if="!filtered.length" class="px-3 py-4 text-sm text-gray-400 text-center">
+          <div v-if="isAsync && asyncLoading" class="px-3 py-4 text-sm text-gray-400 text-center flex items-center justify-center gap-2">
+            <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+            Searching…
+          </div>
+          <div v-else-if="!filtered.length" class="px-3 py-4 text-sm text-gray-400 text-center">
             No results
           </div>
 
@@ -103,6 +108,15 @@ const props = defineProps({
   allLabel:   { type: String, default: '— Select —' },
   showAll:    { type: Boolean, default: true },   // show the "All/None" option
   clearable:  { type: Boolean, default: true },
+  // Optional async/server-side search — when provided, typing in the
+  // dropdown's search box calls this function (debounced) instead of
+  // filtering the static `options` prop client-side. Needed for large
+  // lists (e.g. every client in the system) where loading everything
+  // upfront isn't practical — without this, a static preloaded page
+  // (e.g. the first 500 clients) silently can't ever surface anything
+  // beyond that first batch, no matter what's typed.
+  // Signature: (query: string) => Promise<Array<option>>
+  searchFn: { type: Function, default: null },
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -112,6 +126,18 @@ const wrapper   = ref(null)
 const searchRef = ref(null)
 const dropStyle = ref({})
 
+// Async search state — only used when props.searchFn is set.
+const asyncOptions = ref([])
+const asyncLoading = ref(false)
+let asyncDebounce = null
+// Remembers the full option object for whatever was last picked via this
+// dropdown, so its label keeps displaying correctly even after a later
+// search's results no longer include it (the whole point of async mode
+// is that most options AREN'T loaded at any given moment).
+const selectedOptionCache = ref(null)
+
+const isAsync = computed(() => typeof props.searchFn === 'function')
+
 const hasValue = computed(() => props.modelValue !== null && props.modelValue !== undefined && props.modelValue !== '')
 
 function isSelected(val) {
@@ -120,11 +146,18 @@ function isSelected(val) {
 
 function labelOf(val) {
   if (val === null || val === undefined || val === '') return props.placeholder
-  const item = props.options.find(o => o[props.valueKey] === val)
+  if (isAsync.value && selectedOptionCache.value && selectedOptionCache.value[props.valueKey] === val) {
+    return selectedOptionCache.value[props.labelKey]
+  }
+  const pool = isAsync.value ? asyncOptions.value : props.options
+  const item = pool.find(o => o[props.valueKey] === val)
   return item ? item[props.labelKey] : String(val)
 }
 
 const filtered = computed(() => {
+  // Async mode: the server already filtered by query — show its results
+  // as-is, no further client-side narrowing.
+  if (isAsync.value) return asyncOptions.value
   if (!query.value) return props.options
   const q = query.value.toLowerCase()
   return props.options.filter(o =>
@@ -132,6 +165,23 @@ const filtered = computed(() => {
     String(o.sub || '').toLowerCase().includes(q)
   )
 })
+
+async function runAsyncSearch(q) {
+  asyncLoading.value = true
+  try {
+    asyncOptions.value = await props.searchFn(q)
+  } catch {
+    asyncOptions.value = []
+  } finally {
+    asyncLoading.value = false
+  }
+}
+
+function onQueryInput() {
+  if (!isAsync.value) return
+  clearTimeout(asyncDebounce)
+  asyncDebounce = setTimeout(() => runAsyncSearch(query.value), 300)
+}
 
 function calcDropStyle() {
   if (!wrapper.value) return
@@ -155,9 +205,13 @@ async function toggle() {
   query.value = ''
   await nextTick()
   searchRef.value?.focus()
+  if (isAsync.value) runAsyncSearch('')
 }
 
 function pick(val) {
+  if (isAsync.value) {
+    selectedOptionCache.value = asyncOptions.value.find(o => o[props.valueKey] === val) || selectedOptionCache.value
+  }
   emit('update:modelValue', val)
   open.value = false
   query.value = ''
@@ -176,5 +230,8 @@ function onOutside(e) {
 }
 
 onMounted(() => document.addEventListener('mousedown', onOutside))
-onUnmounted(() => document.removeEventListener('mousedown', onOutside))
+onUnmounted(() => {
+  document.removeEventListener('mousedown', onOutside)
+  clearTimeout(asyncDebounce)
+})
 </script>
