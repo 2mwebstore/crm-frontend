@@ -357,7 +357,7 @@ function resetFilters()     { filters.value = { search: '', date_from: '', date_
 
 // Server-side search for the Client filter dropdown — replaces a static
 // preloaded list (which silently couldn't reach any client beyond
-// whatever fit in that one preloaded page) with an actual API query per
+// whatever fit in  that one preloaded page) with an actual API query per
 // keystroke, so any client in the system can be found by name or code.
 async function searchClients(query) {
   try {

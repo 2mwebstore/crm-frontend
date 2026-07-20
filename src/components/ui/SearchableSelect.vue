@@ -29,7 +29,7 @@
       </span>
     </button>
 
-    <!-- Dropdown (teleported to body to avoid overflow clipping) -->
+    <!-- Dropdown (teleported to body  to avoid overflow clipping) -->
     <Teleport to="body">
       <div
         v-if="open"
