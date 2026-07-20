@@ -13,7 +13,7 @@
     <!-- Filters -->
     <div class="card p-4 flex flex-wrap gap-3">
       <input v-model="filters.search" @input="debouncedLoad" type="text" class="input w-52" placeholder="Search name, code…" />
-      <SearchableSelect v-model="filters.is_active" :options="activeOpts" value-key="id" label-key="name" placeholder="All status" all-label="All status" class="w-36" @update:modelValue="load" />
+      <SearchableSelect v-model="filters.is_active" :options="activeOpts" value-key="id" label-key="name" placeholder="All status" all-label="All status" class="w-36" @update:modelValue="onFilterChange" />
       <button @click="showMoreFilters = !showMoreFilters" class="btn-secondary btn-sm flex items-center gap-1">
         <FunnelIcon class="w-4 h-4" />
         More Filters
@@ -26,19 +26,19 @@
     <div v-if="showMoreFilters" class="card p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
       <div>
         <label class="label text-xs">Branch</label>
-        <SearchableSelect v-model="filters.branch_id" :options="branches" placeholder="All branches" @update:modelValue="load" />
+        <SearchableSelect v-model="filters.branch_id" :options="branches" placeholder="All branches" @update:modelValue="onFilterChange" />
       </div>
       <div>
         <label class="label text-xs">Created By</label>
-        <SearchableSelect v-model="filters.created_by_id" :options="users" placeholder="All users" @update:modelValue="load" />
+        <SearchableSelect v-model="filters.created_by_id" :options="users" placeholder="All users" @update:modelValue="onFilterChange" />
       </div>
       <div>
         <label class="label text-xs">Contact Source</label>
-        <SearchableSelect v-model="filters.contact_source_id" :options="contactSources" placeholder="All sources" @update:modelValue="load" />
+        <SearchableSelect v-model="filters.contact_source_id" :options="contactSources" placeholder="All sources" @update:modelValue="onFilterChange" />
       </div>
       <div>
         <label class="label text-xs">Level</label>
-        <SearchableSelect v-model="filters.level_id" :options="levels" placeholder="All levels" @update:modelValue="load" />
+        <SearchableSelect v-model="filters.level_id" :options="levels" placeholder="All levels" @update:modelValue="onFilterChange" />
       </div>
     </div>
 
@@ -266,7 +266,13 @@ async function load() {
   } catch {} finally { loading.value = false }
 }
 
-function debouncedLoad()   { clearTimeout(debounceTimer); debounceTimer = setTimeout(load, 400) }
+function debouncedLoad()   { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => { page.value = 1; load() }, 400) }
+// Any filter change (dropdown, not the debounced search box) should also
+// reset to page 1 for the same reason — calling load() directly while on
+// page 2+ would silently return empty results if the newly filtered set
+// is smaller than the current page number, even though the filter itself
+// is applied correctly server-side.
+function onFilterChange()  { page.value = 1; load() }
 function onPageSizeChange() { page.value = 1; load() }
 function goPage(p)          { page.value = p; load() }
 function resetFilters()     { filters.value = { search: '', is_active: null, branch_id: null, created_by_id: null, contact_source_id: null, level_id: null }; page.value = 1; load() }
