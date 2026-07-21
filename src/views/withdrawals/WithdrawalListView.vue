@@ -112,7 +112,7 @@
       </div>
       <div>
         <label class="label text-xs">Company Bank</label>
-        <SearchableSelect v-model="filters.bank_type_id" :options="bankTypes" placeholder="All company banks" @update:modelValue="onFilterChange" />
+        <SearchableSelect v-model="filters.company_bank_id" :options="companyBanks" placeholder="All company banks" @update:modelValue="onFilterChange" />
       </div>
       <div>
         <label class="label text-xs">Product</label>
@@ -282,6 +282,7 @@ import DateRangePicker from '@/components/ui/DateRangePicker.vue'
 import { getWithdrawals, deleteWithdrawal, approveWithdrawal } from '@/api/transactions'
 import { useToast } from '@/composables/useToast'
 import { getBranches } from '@/api/branches'
+import { getCompanyBanks } from '@/api/lookup'
 import { getUsersInScope } from '@/api/users'
 import { getClients } from '@/api/clients'
 import { useLookupStore } from '@/stores/lookup'
@@ -300,7 +301,7 @@ let debounceTimer = null
 const showMoreFilters = ref(false)
 const branches   = ref([])
 const users      = ref([])
-const bankTypes = ref([])
+const companyBanks = ref([])
 const products   = ref([])
 const lookup     = useLookupStore()
 
@@ -328,7 +329,7 @@ async function loadTodayWithdrawal() {
 const currentPage     = computed(() => page.value)
 const currentPageSize = computed(() => pageSize.value)
 
-const filters  = ref({ search: '', date_from: '', date_to: '', status: null, currency: null, branch_id: null, created_by_id: null, client_id: null, bank_type_id: null, product_type_id: null })
+const filters  = ref({ search: '', date_from: '', date_to: '', status: null, currency: null, branch_id: null, created_by_id: null, client_id: null, company_bank_id: null, product_type_id: null })
 const statusOpts = [{ id: 'pending', name: 'Pending' }, { id: 'approved', name: 'Approved' }, { id: 'rejected', name: 'Rejected' }]
 
 
@@ -362,7 +363,7 @@ const totalRejected = computed(() => {
 
 const activeMoreFilters = computed(() =>
   [filters.value.branch_id, filters.value.created_by_id, filters.value.client_id,
-   filters.value.client_bank_id, filters.value.product_type_id].filter(Boolean).length
+   filters.value.company_bank_id, filters.value.product_type_id].filter(Boolean).length
 )
 
 function statusColor(s) { return { pending:'bg-yellow-100 text-yellow-700', approved:'bg-green-100 text-green-700', rejected:'bg-red-100 text-red-700' }[s]||'bg-gray-100 text-gray-600' }
@@ -384,7 +385,7 @@ async function load() {
     if (filters.value.branch_id)      params.branch_id       = filters.value.branch_id
     if (filters.value.created_by_id)  params.created_by_id   = filters.value.created_by_id
     if (filters.value.client_id)      params.client_id       = filters.value.client_id
-    if (filters.value.bank_type_id)   params.bank_type_id    = filters.value.bank_type_id
+    if (filters.value.company_bank_id) params.company_bank_id = filters.value.company_bank_id
     if (filters.value.product_type_id) params.product_type_id = filters.value.product_type_id
     const res = await getWithdrawals(params)
     items.value = res.data || []
@@ -398,11 +399,11 @@ function onPageSizeChange() { page.value = 1; load() }
 // as debouncedLoad above.
 function onFilterChange()  { page.value = 1; load() }
 function goPage(p) { page.value = p; load() }
-function resetFilters() { filters.value = { search:'', date_from:'', date_to:'', status:null, currency:null, branch_id: null, created_by_id: null, client_id: null, bank_type_id: null, product_type_id: null }; page.value = 1; load() }
+function resetFilters() { filters.value = { search:'', date_from:'', date_to:'', status:null, currency:null, branch_id: null, created_by_id: null, client_id: null, company_bank_id: null, product_type_id: null }; page.value = 1; load() }
 
 // Server-side search for the Client filter dropdown — replaces a static
 // preloaded list (which silently couldn't reach any client beyond
-// whatever fit in that one  preloaded page) with an actual API query per
+// whatever fit in that one preloaded page) with an actual API query per
 // keystroke, so any client in the system can be found by name or code.
 async function searchClients(query) {
   try {
@@ -428,10 +429,10 @@ onMounted(async () => {
   lookup.loadAll()
   try { const r = await getBranches({ show_all: false }); branches.value = (r.data||[]).map(b=>({id:b.id,name:b.name,sub:b.code})) } catch {}
   try { const r = await getUsersInScope(); users.value = (r.data||[]).map(u=>({id:u.id,name:u.name,sub:u.email})) } catch {}
-  // users and banks loaded from lookup store after loadAll
+  try { const r = await getCompanyBanks({ page: 1, page_size: 200 }); companyBanks.value = (r.data||[]).map(b=>({id:b.id,name:b.account_name,sub:[b.bank_type?.name, b.currency_type?.code].filter(Boolean).join(' · ')})) } catch {}
+  // products loaded from lookup store after loadAll
   setTimeout(() => {
     products.value = lookup.productTypes.map(p=>({id:p.id,name:p.name}))
-    bankTypes.value = lookup.bankTypes.map(b=>({id:b.id,name:b.name,sub:b.code}))
   }, 500)
 })
 </script>
