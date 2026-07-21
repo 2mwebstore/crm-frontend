@@ -262,7 +262,7 @@ const dateTo   = ref(monthEnd())
 
 const clientOptions = computed(() => clients.value.map(c => ({ id: c.id, name: c.name, sub: c.code })))
 const companyBankOptions = computed(() =>
-  companyBanks.value.map(cb => ({ id: cb.id, name: `${cb.account_name}${cb.bank_type?.name ? ' — ' + cb.bank_type.name : ''}`, sub: cb.account_number }))
+  companyBanks.value.map(cb => ({ id: cb.id, name: cb.account_name, sub: [cb.bank_type?.name, cb.currency_type?.code].filter(Boolean).join(' · ') }))
 )
 
 function buildParams(extra = {}) {
