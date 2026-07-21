@@ -34,7 +34,7 @@
       </div>
       <div>
         <label class="label text-xs">Client</label>
-        <SearchableSelect v-model="clientId" :options="clientOptions" placeholder="All clients" @update:modelValue="applyFilters" />
+        <SearchableSelect v-model="clientId" :search-fn="searchClients" placeholder="All clients" @update:modelValue="applyFilters" />
       </div>
       <div>
         <label class="label text-xs">Product</label>
@@ -232,7 +232,6 @@ const lookup = useLookupStore()
 
 // ── Shared filter state ───────────────────────────────────────────────────
 const branches = ref([])
-const clients = ref([])
 const companyBanks = ref([])
 const users = ref([])
 const approvedByUsers = ref([])
@@ -260,7 +259,19 @@ function monthEnd()   { const d = new Date(); const e = new Date(d.getFullYear()
 const dateFrom = ref(monthStart())
 const dateTo   = ref(monthEnd())
 
-const clientOptions = computed(() => clients.value.map(c => ({ id: c.id, name: c.name, sub: c.code })))
+// Server-side search for the Client filter — replaces a static preloaded
+// list (which silently couldn't reach any client beyond whatever fit in
+// one preloaded page) with an actual API query per keystroke, scoped to
+// the currently selected branch (same as the old preload's own scoping).
+async function searchClients(query) {
+  try {
+    const r = await getClients({ search: query, page: 1, page_size: 20, is_active: true, branch_id: branchId.value || undefined })
+    return (r.data || []).map(c => ({ id: c.id, name: c.name, sub: c.code }))
+  } catch {
+    return []
+  }
+}
+
 const companyBankOptions = computed(() =>
   companyBanks.value.map(cb => ({ id: cb.id, name: cb.account_name, sub: [cb.bank_type?.name, cb.currency_type?.code].filter(Boolean).join(' · ') }))
 )
@@ -283,9 +294,7 @@ function buildParams(extra = {}) {
 async function onBranchChange(bid) {
   clientId.value = null
   companyBankId.value = null
-  clients.value = []
   companyBanks.value = []
-  try { const r = await getClients({ page: 1, page_size: 500, is_active: true, branch_id: bid || undefined }); clients.value = r.data || [] } catch {}
   try { const r = await getCompanyBanks({ branch_id: bid || undefined, show_all: false }); companyBanks.value = r.data || [] } catch {}
   applyFilters()
 }
@@ -441,7 +450,6 @@ onMounted(async () => {
   lookup.loadAll()
   try { const r = await getBranches({ show_all: false }); branches.value = (r.data || []).map(b => ({ id: b.id, name: b.name, sub: b.code })) } catch {}
   try { const r = await getUsersInScope(); users.value = (r.data || []).map(u => ({ id: u.id, name: u.name, sub: u.email })) } catch {}
-  try { const r = await getClients({ page: 1, page_size: 500 }); clients.value = r.data || [] } catch {}
   try { const r = await getUsersInScope(); approvedByUsers.value = (r.data || []).map(u => ({ id: u.id, name: u.name, sub: u.email })) } catch {}
   try { const r = await getCompanyBanks({ show_all: false }); companyBanks.value = r.data || [] } catch {}
 })
