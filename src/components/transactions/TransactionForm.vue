@@ -34,6 +34,7 @@
           <SearchableSelect
             v-model="form.client_id"
             :search-fn="branchId ? searchClients : null"
+            :initial-label="clientInitialLabel"
             :placeholder="branchId ? 'Search and select client…' : 'Select a branch first…'"
             :show-all="false"
             :disabled="isEdit || !branchId"
@@ -47,7 +48,7 @@
             :options="productOptions"
             :placeholder="form.client_id ? 'Select product…' : 'Select a client first…'"
             :show-all="false"
-            :disabled="isEdit || !form.client_id"
+            :disabled="!form.client_id"
           />
           <p v-if="form.client_id && !productOptions.length && !loadingClient" class="text-xs text-amber-600 mt-1">
             No products found. Add one in the client's Player section.
@@ -177,6 +178,7 @@ const props = defineProps({
   type:               { type: String, default: 'deposit' },
   isEdit:             { type: Boolean, default: false },
   branchId:           { type: [Number, String], default: null },
+  initialClient:      { type: Object, default: null },
   initialProduct:     { type: Object, default: null },
   initialBank:        { type: Object, default: null },
   initialCompanyBank: { type: Object, default: null },
@@ -196,6 +198,9 @@ const companyBanks        = ref([])
 const bonusOptionsList    = ref([])
 const loadingClient       = ref(false)
 const loadingClients      = ref(false)
+// Name of whichever client autoSelectSoleClient picked, if any — see that
+// function for why this exists.
+const autoSelectedClientName = ref('')
 const loadingCompanyBanks = ref(false)
 const loadingBonusOptions = ref(false)
 
@@ -203,6 +208,11 @@ const form = computed({
   get: () => props.modelValue,
   set: (v) => emit('update:modelValue', v)
 })
+
+// Combines both sources of a known client name for the label fallback:
+// the edit-mode initialClient prop, or the name autoSelectSoleClient
+// found when auto-picking the sole client on a create form.
+const clientInitialLabel = computed(() => props.initialClient?.name || autoSelectedClientName.value || null)
 
 const productOptions = computed(() => {
   const list = clientProducts.value.length > 0
@@ -358,7 +368,12 @@ async function loadBonusOptions(branchId = null) {
 // Only checks whether this branch has EXACTLY one client, to preserve the
 // auto-select-if-only-one-client convenience — deliberately NOT loading
 // the full client list anymore (that's what searchClients below is for,
-// queried live per-keystroke instead of preloaded).
+// queried live per-keystroke instead of preloaded). Also tracks the
+// auto-selected client's own name — the async SearchableSelect only knows
+// an option's label from a real search result or a picked option, so
+// setting form.client_id here directly (without going through the
+// dropdown's own pick()) would otherwise leave it with nothing to show
+// but the raw ID number.
 async function autoSelectSoleClient(branchId = null) {
   if (!branchId || props.isEdit) return
   loadingClients.value = true
@@ -366,6 +381,9 @@ async function autoSelectSoleClient(branchId = null) {
     const res = await getClients({ page: 1, page_size: 2, is_active: true, branch_id: branchId })
     if ((res.meta?.total_items ?? res.data?.length) === 1) {
       form.value.client_id = res.data[0].id
+      autoSelectedClientName.value = res.data[0].name
+    } else {
+      autoSelectedClientName.value = ''
     }
   } catch {} finally { loadingClients.value = false }
 }
@@ -430,6 +448,7 @@ watch(() => props.branchId, async (bid) => {
     form.value.currency          = ''
     clientBanks.value    = []
     clientProducts.value = []
+    autoSelectedClientName.value = ''
   }
   await Promise.all([autoSelectSoleClient(bid), loadCompanyBanks(bid), loadBonusOptions(bid)])
 })

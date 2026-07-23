@@ -117,6 +117,15 @@ const props = defineProps({
   // beyond that first batch, no matter what's typed.
   // Signature: (query: string) => Promise<Array<option>>
   searchFn: { type: Function, default: null },
+  // Optional — the display label for whatever modelValue already IS when
+  // this component mounts, before any search has run. Needed specifically
+  // for async mode on an edit form: modelValue might already be set (e.g.
+  // client_id: 42 loaded from an existing record) but asyncOptions is
+  // still empty since no search has happened yet, so labelOf would
+  // otherwise have nothing to show but the raw ID. Once the user actually
+  // searches/picks something, the real option data takes over and this is
+  // no longer consulted.
+  initialLabel: { type: String, default: null },
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -151,7 +160,9 @@ function labelOf(val) {
   }
   const pool = isAsync.value ? asyncOptions.value : props.options
   const item = pool.find(o => o[props.valueKey] === val)
-  return item ? item[props.labelKey] : String(val)
+  if (item) return item[props.labelKey]
+  if (isAsync.value && props.initialLabel) return props.initialLabel
+  return String(val)
 }
 
 const filtered = computed(() => {

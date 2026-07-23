@@ -15,6 +15,7 @@
       type="deposit"
       :is-edit="isEdit"
       :branch-id="branchId"
+      :initial-client="initialClient"
       :initial-product="initialProduct"
       :initial-bank="initialBank"
       :initial-company-bank="initialCompanyBank"
@@ -81,6 +82,7 @@ const saving  = ref(false)
 const branches = ref([])
 const branchId = ref(null)
 
+const initialClient      = ref(null)
 const initialProduct     = ref(null)
 const initialBank        = ref(null)
 const initialCompanyBank = ref(null)
@@ -103,6 +105,7 @@ onMounted(async () => {
       const res = await getDeposit(route.params.id)
 
       const d = res.data
+      if (d.client)         initialClient.value      = d.client
       if (d.client_product) initialProduct.value     = d.client_product
       if (d.client_bank)    initialBank.value        = d.client_bank
       if (d.company_bank)   initialCompanyBank.value = d.company_bank
@@ -147,6 +150,7 @@ async function handleSubmit(formData) {
       await updateDeposit(route.params.id, {
         branch_id:       branchId.value || undefined,
         date:            payload.date,
+        client_product_id: payload.client_product_id,
         client_bank_id:  payload.client_bank_id,
         company_bank_id: payload.company_bank_id,
         amount:          payload.amount,
