@@ -482,7 +482,15 @@ function openCreate() {
   editing.value = null
   modal.value = true
 }
-function openEdit(row) { form.value = { ...row, branch_id: row.branch_id || null }; editing.value = row; modal.value = true }
+function openEdit(row) {
+  const picked = {}
+  for (const key of Object.keys(props.defaultForm)) {
+    picked[key] = row[key] !== undefined ? row[key] : props.defaultForm[key]
+  }
+  form.value = { ...picked, branch_id: row.branch_id || null }
+  editing.value = row
+  modal.value = true
+}
 function confirmDelete(row) { deleteTarget.value = row; deleteDialog.value = true }
 
 async function handleSave() {
