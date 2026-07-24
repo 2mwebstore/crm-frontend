@@ -187,7 +187,7 @@
         <div class="mt-4 flex items-center justify-end gap-3">
           <button
             v-if="canStartShift"
-            @click="doStart"
+            @click="startConfirmOpen = true"
             class="btn-primary flex items-center gap-2"
             :disabled="starting || !!today?.snapshot"
           >
@@ -196,7 +196,7 @@
           </button>
           <button
             v-if="canCloseShift"
-            @click="doClose"
+            @click="closeConfirmOpen = true"
             class="btn-secondary flex items-center gap-2"
             :disabled="closing || !today?.snapshot"
           >
@@ -432,6 +432,25 @@
         </div>
       </div>
     </template>
+
+    <ConfirmDialog
+      v-model="startConfirmOpen"
+      title="Start Shift"
+      message="Start today's shift for this branch? This opens a new Daily Balance record and can't be undone by simply clicking again."
+      confirm-label="Start Shift"
+      confirming-label="Starting…"
+      variant="primary"
+      @confirm="doStart"
+    />
+    <ConfirmDialog
+      v-model="closeConfirmOpen"
+      title="Close Shift"
+      message="Close today's shift for this branch? Make sure all of today's transactions are recorded first — you won't be able to reopen this shift afterward."
+      confirm-label="Close Shift"
+      confirming-label="Closing…"
+      variant="primary"
+      @confirm="doClose"
+    />
   </div>
 </template>
 
@@ -439,6 +458,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { PlayIcon, StopIcon, ChevronLeftIcon, ChevronRightIcon, CameraIcon } from '@heroicons/vue/24/outline'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { startTodayBalance, closeTodayBalance, getTodayBalance, getBalanceHistory, getShiftBalanceTransactions } from '@/api/daily-balances'
 import { getBranches } from '@/api/branches'
 import { useAuthStore } from '@/stores/auth'
@@ -458,6 +478,8 @@ const branchId = ref(null)
 const today = ref(null)
 const starting = ref(false)
 const closing = ref(false)
+const startConfirmOpen = ref(false)
+const closeConfirmOpen = ref(false)
 const showBankDetail = ref(false)
 const showProductDetail = ref(false)
 const showBankIncomeDetail = ref(false)
